@@ -1,0 +1,46 @@
+# (C) 2016 University of Bristol. See License.txt
+
+ROOT = .
+
+OPTIM= -O3
+#PROF = -pg
+#DEBUG = -DDEBUG
+#MEMPROTECT = -DMEMPROTECT
+
+# set this to your preferred local storage directory
+PREP_DIR = '-DPREP_DIR="Player-Data/"'
+
+# set for 128-bit GF(2^n) and/or OT preprocessing
+USE_GF2N_LONG = 0
+
+# set to -march=<architecture> for optimization
+# AVX2 support (Haswell or later) changes the bit matrix transpose
+ARCH = -mtune=native
+
+#use CONFIG.mine to overwrite DIR settings
+-include CONFIG.mine
+
+ifeq ($(USE_GF2N_LONG),1)
+GF2N_LONG = -DUSE_GF2N_LONG
+endif
+
+# MAX_MOD_SZ must be at least ceil(len(p)/len(word))+1
+# Default is 3, which suffices for 128-bit p
+# MOD = -DMAX_MOD_SZ=3
+
+LDLIBS = -lmpirxx -lmpir $(MY_LDLIBS) -lm -lpthread
+
+ifeq ($(USE_NTL),1)
+LDLIBS := -lntl $(LDLIBS)
+endif
+
+OS := $(shell uname -s)
+ifeq ($(OS), Linux)
+LDLIBS += -lrt
+endif
+
+CXX = g++
+CFLAGS = $(MY_CFLAGS) -g -Wextra -Wall $(OPTIM) -I$(ROOT) -pthread $(PROF) $(DEBUG) $(MOD) $(MEMPROTECT) $(GF2N_LONG) $(PREP_DIR) -maes -mpclmul -msse4.1 $(ARCH)
+CPPFLAGS = $(CFLAGS)
+LD = g++
+

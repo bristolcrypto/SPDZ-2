@@ -1,0 +1,395 @@
+# (C) 2016 University of Bristol. See License.txt
+
+from copy import copy
+
+rcon_raw = [
+        0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a,
+        0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39,
+        0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a,
+        0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8,
+        0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef,
+        0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc,
+        0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b,
+        0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3,
+        0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94,
+        0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20,
+        0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35,
+        0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f,
+        0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04,
+        0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63,
+        0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd,
+        0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb
+]
+
+nparallel = 1
+noutput = 1
+nthreads = 1
+
+rcon = VectorArray(len(rcon_raw), cgf2n, nparallel)
+for idx in range(len(rcon_raw)):
+    rcon[idx] = cgf2n(rcon_raw[idx],size=nparallel)
+
+powers2 = VectorArray(8, cgf2n, nparallel)
+for idx in range(8):
+    powers2[idx] = cgf2n(2,size=nparallel) ** (5 * idx)
+
+@vectorize
+def ApplyEmbedding(x):
+    in_bytes = x.bit_decompose(8)
+
+    out_bytes = [cgf2n(0) for _ in range(8)]
+
+    out_bytes[0] = sum(in_bytes[0:8])
+    out_bytes[1] = sum(in_bytes[idx] for idx in range(1, 8, 2))
+    out_bytes[2] = in_bytes[2] + in_bytes[3] + in_bytes[6] + in_bytes[7]
+    out_bytes[3] = in_bytes[3] + in_bytes[7]
+    out_bytes[4] = in_bytes[4] + in_bytes[5] + in_bytes[6] + in_bytes[7]
+    out_bytes[5] = in_bytes[5] + in_bytes[7]
+    out_bytes[6] = in_bytes[6] + in_bytes[7]
+    out_bytes[7] = in_bytes[7]
+
+    return sum(powers2[idx] * out_bytes[idx] for idx in range(8))
+
+
+def embed_helper(in_bytes):
+    out_bytes = [None] * 8
+    out_bytes[0] = sum(in_bytes[0:8])
+    out_bytes[1] = sum(in_bytes[idx] for idx in range(1, 8, 2))
+    out_bytes[2] = in_bytes[2] + in_bytes[3] + in_bytes[6] + in_bytes[7]
+    out_bytes[3] = in_bytes[3] + in_bytes[7]
+    out_bytes[4] = in_bytes[4] + in_bytes[5] + in_bytes[6] + in_bytes[7]
+    out_bytes[5] = in_bytes[5] + in_bytes[7]
+    out_bytes[6] = in_bytes[6] + in_bytes[7]
+    out_bytes[7] = in_bytes[7]
+    return out_bytes
+
+@vectorize
+def ApplyBDEmbedding(x):
+    entire_sequence_bits = copy(x)
+
+    while len(entire_sequence_bits) < 8:
+        entire_sequence_bits.append(0)
+
+    in_bytes = entire_sequence_bits
+    out_bytes = embed_helper(in_bytes)
+
+    return sum(powers2[idx] * out_bytes[idx] for idx in range(8))
+
+
+def PreprocInverseEmbedding(x):
+    in_bytes = x.bit_decompose_embedding()
+
+    out_bytes = [cgf2n(0) for _ in range(8)]
+
+    out_bytes[7] = in_bytes[7]
+    out_bytes[6] = in_bytes[6] + out_bytes[7]
+    out_bytes[5] = in_bytes[5] + out_bytes[7]
+    out_bytes[4] = in_bytes[4] + out_bytes[5] + out_bytes[6] + out_bytes[7]
+    out_bytes[3] = in_bytes[3] + out_bytes[7]
+    out_bytes[2] = in_bytes[2] + out_bytes[3] + out_bytes[6] + out_bytes[7]
+    out_bytes[1] = in_bytes[1] +  out_bytes[3] + out_bytes[5] + out_bytes[7]
+    out_bytes[0] = in_bytes[0] + sum(out_bytes[1:8])
+
+    return out_bytes
+
+@vectorize
+def InverseEmbedding(x):
+    out_bytes = PreprocInverseEmbedding(x)
+    ret = cgf2n(0)
+    for idx in range(7, -1, -1):
+        ret = ret + (cgf2n(2) ** idx) * out_bytes[idx]
+    return ret
+
+def InverseBDEmbedding(x):
+    return PreprocInverseEmbedding(x)
+
+def expandAESKey(cipherKey, Nr = 10, Nb = 4, Nk = 4):
+    #cipherkey should be in hex
+    cipherKeySize = len(cipherKey)
+
+    round_key = [sgf2n(0,size=nparallel)] * 176
+    temp = [cgf2n(0,size=nparallel)] * 4
+
+    for i in range(Nk):
+        for j in range(4):
+            round_key[4 * i + j] = cipherKey[4 * i + j]
+
+    for i in range(Nk, Nb * (Nr + 1)):
+        for j in range(4):
+            temp[j] = round_key[(i-1) * 4 + j]
+        if i % Nk == 0:
+            #rotate the 4 bytes word to the left
+            k = temp[0]
+            temp[0] = temp[1]
+            temp[1] = temp[2]
+            temp[2] = temp[3]
+            temp[3] = k
+
+            #now substitute word
+            temp[0] = box.apply_sbox(temp[0])
+            temp[1] = box.apply_sbox(temp[1])
+            temp[2] = box.apply_sbox(temp[2])
+            temp[3] = box.apply_sbox(temp[3])
+
+            temp[0] = temp[0] + ApplyEmbedding(rcon[int(i/Nk)])
+
+        for j in range(4):
+            round_key[4 * i + j] = round_key[4 * (i - Nk) + j] + temp[j]
+    return round_key
+
+    #Nr = 10 -> The number of rounds in AES Cipher.
+    #Nb = 4 -> The number of columns of the AES state
+    #Nk = 4 -> The number of words of a AES key 
+
+def SecretArrayEmbedd(byte_array):
+    return [ApplyEmbedding(_) for _ in byte_array]
+
+@vectorize
+def subBytes(state):
+    for i in range(len(state)):
+        state[i] = box.apply_sbox(state[i])
+
+def addRoundKey(roundKey):
+    @vectorize
+    def inner(state):
+        for i in range(len(state)):
+            state[i] = state[i] + roundKey[i]
+    return inner
+
+# mixColumn takes a column and does stuff
+
+Kv = VectorArray(4, cgf2n, nparallel)
+Kv[1] = ApplyEmbedding(cgf2n(1,size=nparallel))
+Kv[2] = ApplyEmbedding(cgf2n(2,size=nparallel))
+Kv[3] = ApplyEmbedding(cgf2n(3,size=nparallel))
+Kv[4] = ApplyEmbedding(cgf2n(4,size=nparallel))
+
+
+@vectorize
+def mixColumn(column):
+    temp = copy(column)
+    v1 = Kv[1]
+    v2 = Kv[2]
+    v3 = Kv[3]
+    v4 = Kv[4]
+    # no multiplication
+    doubles = [Kv[2] * t for t in temp]
+    column[0] = doubles[0] + (temp[1] + doubles[1]) + temp[2] + temp[3]
+    column[1] = temp[0] + doubles[1] + (temp[2] + doubles[2]) + temp[3]
+    column[2] = temp[0] + temp[1] + doubles[2] + (temp[3] + doubles[3])
+    column[3] = (temp[0] + doubles[0]) + temp[1] + temp[2] + doubles[3]
+
+@vectorize
+def mixColumns(state):
+    for i in range(4):
+        column = []
+        for j in range(4):
+            column.append(state[i*4+j])
+        mixColumn(column)
+        for j in range(4):
+            state[i*4+j] = column[j]
+
+def rotate(word, n):
+    return word[n:]+word[0:n]
+
+def shiftRows(state):
+    for i in range(4):
+        state[i::4] = rotate(state[i::4],i)
+
+@vectorize
+def state_collapse(state):
+    return [InverseEmbedding(_) for _ in state]
+
+
+# such constants. very wow.
+_embedded_powers = [
+    [0x1,0x2,0x4,0x8,0x10,0x20,0x40,0x80,0x100,0x200,0x400,0x800,0x1000,0x2000,0x4000,0x8000,0x10000,0x20000,0x40000,0x80000,0x100000,0x200000,0x400000,0x800000,0x1000000,0x2000000,0x4000000,0x8000000,0x10000000,0x20000000,0x40000000,0x80000000,0x100000000,0x200000000,0x400000000,0x800000000,0x1000000000,0x2000000000,0x4000000000,0x8000000000],
+    [0x1,0x4,0x10,0x40,0x100,0x400,0x1000,0x4000,0x10000,0x40000,0x100000,0x400000,0x1000000,0x4000000,0x10000000,0x40000000,0x100000000,0x400000000,0x1000000000,0x4000000000,0x108401,0x421004,0x1084010,0x4210040,0x10840100,0x42100400,0x108401000,0x421004000,0x1084010000,0x4210040000,0x840008401,0x2100021004,0x8400084010,0x1000000842,0x4000002108,0x100021,0x400084,0x1000210,0x4000840,0x10002100],
+    [0x1,0x10,0x100,0x1000,0x10000,0x100000,0x1000000,0x10000000,0x100000000,0x1000000000,0x108401,0x1084010,0x10840100,0x108401000,0x1084010000,0x840008401,0x8400084010,0x4000002108,0x400084,0x4000840,0x40008400,0x400084000,0x4000840000,0x8021004,0x80210040,0x802100400,0x8021004000,0x210802008,0x2108020080,0x1080010002,0x800008421,0x8000084210,0x108,0x1080,0x10800,0x108000,0x1080000,0x10800000,0x108000000,0x1080000000],
+    [0x1,0x100,0x10000,0x1000000,0x100000000,0x108401,0x10840100,0x1084010000,0x8400084010,0x400084,0x40008400,0x4000840000,0x80210040,0x8021004000,0x2108020080,0x800008421,0x108,0x10800,0x1080000,0x108000000,0x800108401,0x10002108,0x1000210800,0x20004010,0x2000401000,0x42008020,0x4200802000,0x84200842,0x8420084200,0x2000421084,0x40000420,0x4000042000,0x10040,0x1004000,0x100400000,0x40108401,0x4010840100,0x1080200040,0x8021080010,0x2100421080],
+    [0x1,0x10000,0x100000000,0x10840100,0x8400084010,0x40008400,0x80210040,0x2108020080,0x108,0x1080000,0x800108401,0x1000210800,0x2000401000,0x4200802000,0x8420084200,0x40000420,0x10040,0x100400000,0x4010840100,0x8021080010,0x40108421,0x1080000040,0x100421080,0x4200040100,0x1084200,0x842108401,0x1004210042,0x2008400004,0x4210000008,0x401080210,0x840108001,0x1000000840,0x100001000,0x840100,0x8401000000,0x800000001,0x84210800,0x2100001084,0x210802100,0x8001004210],
+    [0x1,0x100000000,0x8400084010,0x80210040,0x108,0x800108401,0x2000401000,0x8420084200,0x10040,0x4010840100,0x40108421,0x100421080,0x1084200,0x1004210042,0x4210000008,0x840108001,0x100001000,0x8401000000,0x84210800,0x210802100,0x800000401,0x2100420080,0x8000004000,0x4010002,0x4000800100,0x842000420,0x8421084,0x421080210,0x80010042,0x10802108,0x800000020,0x1084,0x8401084010,0x1004200040,0x4000840108,0x100020,0x2108401000,0x8400080210,0x84210802,0x10802100],
+    [0x1,0x8400084010,0x108,0x2000401000,0x10040,0x40108421,0x1084200,0x4210000008,0x100001000,0x84210800,0x800000401,0x8000004000,0x4000800100,0x8421084,0x80010042,0x800000020,0x8401084010,0x4000840108,0x2108401000,0x84210802,0x20,0x8000004210,0x2100,0x8401004,0x200800,0x802108420,0x21084000,0x4200842108,0x2000020000,0x1084210000,0x100421,0x1004010,0x10840008,0x108421080,0x1000200840,0x108001,0x8020004210,0x10040108,0x2108401004,0x1084210040],
+    [0x1,0x108,0x10040,0x1084200,0x100001000,0x800000401,0x4000800100,0x80010042,0x8401084010,0x2108401000,0x20,0x2100,0x200800,0x21084000,0x2000020000,0x100421,0x10840008,0x1000200840,0x8020004210,0x2108401004,0x400,0x42000,0x4010000,0x421080000,0x21004,0x2008420,0x210800100,0x4200002,0x401000210,0x2108401084,0x8000,0x840000,0x80200000,0x8421000000,0x420080,0x40108400,0x4210002000,0x84000040,0x8020004200,0x2108400084]
+]
+
+enum_squarings = VectorArray(8 * 40, cgf2n, nparallel)
+for i,_list in enumerate(_embedded_powers):
+    for j,x in enumerate(_list):
+        enum_squarings[40 * i + j] = cgf2n(x, size=nparallel)
+
+@vectorize
+def fancy_squaring(bd_val, exponent):
+    #This is even more fancy; it performs directly on bit dec values
+    #returns x ** (2 ** exp) from a bit decomposed value
+    return sum(enum_squarings[exponent * 40 + idx] * bd_val[idx]
+            for idx in range(len(bd_val)))
+
+def inverseMod(val):
+    #embedded now!
+    #returns x ** 254 using offline squaring
+    #returns an embedded result
+
+    raw_bit_dec = val.bit_decompose_embedding()
+    bd_val = [cgf2n(0,size=nparallel)] * 40
+
+    for idx in range(40):
+        if idx % 5 == 0:
+            bd_val[idx] = raw_bit_dec[idx / 5]
+
+    bd_squared = bd_val
+    squared_index = 2
+
+    mapper = [0] * 129
+    for idx in range(1, 8):
+        bd_squared = fancy_squaring(bd_val, idx)
+        mapper[squared_index] = bd_squared
+        squared_index *= 2
+
+    enum_powers = [
+        2, 4, 8, 16, 32, 64, 128
+    ]
+
+    inverted_product = \
+        ((mapper[2] * mapper[4]) * (mapper[8] * mapper[16])) * ((mapper[32] * mapper[64]) * mapper[128])
+    return inverted_product
+
+K01 = VectorArray(8, cgf2n, nparallel)
+for idx in range(8):
+    K01[idx] = ApplyBDEmbedding([0,1]) ** idx
+
+class SpdzBox(object):
+    def init_matrices(self):
+        self.matrix_inv = [ 
+            [0,0,1,0,0,1,0,1],
+            [1,0,0,1,0,0,1,0],
+            [0,1,0,0,1,0,0,1],
+            [1,0,1,0,0,1,0,0],
+            [0,1,0,1,0,0,1,0],
+            [0,0,1,0,1,0,0,1],
+            [1,0,0,1,0,1,0,0],
+            [0,1,0,0,1,0,1,0]
+        ]
+        to_add = [1,0,1,0,0,0,0,0]
+        self.addition_inv = [cgf2n(_,size=nparallel) for _ in to_add]
+        self.forward_matrix = [
+            [1,0,0,0,1,1,1,1],
+            [1,1,0,0,0,1,1,1],
+            [1,1,1,0,0,0,1,1],
+            [1,1,1,1,0,0,0,1],
+            [1,1,1,1,1,0,0,0],
+            [0,1,1,1,1,1,0,0],
+            [0,0,1,1,1,1,1,0],
+            [0,0,0,1,1,1,1,1]
+        ]
+        forward_add = [1,1,0,0,0,1,1,0]
+        self.forward_add = VectorArray(len(forward_add), cgf2n, nparallel)
+        for i,x in enumerate(forward_add):
+            self.forward_add[i] = cgf2n(x, size=nparallel)
+
+    def __init__(self):
+        constants = [
+            0x63, 0x8F, 0xB5, 0x01, 0xF4, 0x25, 0xF9, 0x09, 0x05
+        ]
+        self.powers = [
+            0, 127, 191, 223, 239, 247, 251, 253, 254
+        ]
+        self.constants = [ApplyEmbedding(cgf2n(_,size=nparallel)) for _ in constants]
+        self.init_matrices()
+
+    def forward_bit_sbox(self, emb_byte):
+        emb_byte_inverse = inverseMod(emb_byte)
+        unembedded_x = InverseBDEmbedding(emb_byte_inverse)
+
+        linear_transform = list()
+        for row in self.forward_matrix:
+            result = cgf2n(0, size=nparallel)
+            for idx in range(len(row)):
+                result = result + unembedded_x[idx] * row[idx]
+            linear_transform.append(result)
+
+        #do the sum(linear_transfor + additive_layer)
+        summation_bd = [0 for _ in range(8)]
+        for idx in range(8):
+            summation_bd[idx] = linear_transform[idx] + self.forward_add[idx]
+
+        #Now raise this to power of 254
+        result = cgf2n(0,size=nparallel)
+        for idx in range(8):
+            result += ApplyBDEmbedding([summation_bd[idx]]) * K01[idx];
+        return result
+
+    def apply_sbox(self, what):
+        #applying with the multiplicative chain
+        return self.forward_bit_sbox(what)
+
+box = SpdzBox()
+
+def aesRound(roundKey):
+    @vectorize
+    def inner(state):
+        subBytes(state)
+        shiftRows(state)
+        mixColumns(state)
+        addRoundKey(roundKey)(state)
+    return inner
+
+# returns a 16-byte round key based on an expanded key and round number
+def createRoundKey(expandedKey, n):
+    return expandedKey[(n*16):(n*16+16)]
+
+# wrapper function for 10 rounds of AES since we're using a 128-bit key
+def aesMain(expandedKey, numRounds=10):
+    @vectorize
+    def inner(state):
+        roundKey = createRoundKey(expandedKey, 0)
+        addRoundKey(roundKey)(state)
+        for i in range(1, numRounds):
+
+            roundKey = createRoundKey(expandedKey, i)
+            aesRound(roundKey)(state)
+
+        roundKey = createRoundKey(expandedKey, numRounds)
+
+        subBytes(state) 
+        shiftRows(state)
+        addRoundKey(roundKey)(state)
+    return inner
+
+def encrypt_without_key_schedule(expandedKey):
+    @vectorize
+    def encrypt(plaintext):
+        plaintext = SecretArrayEmbedd(plaintext)
+        aesMain(expandedKey)(plaintext)
+        return state_collapse(plaintext)
+    return encrypt;
+
+"""
+Test Vectors:
+
+plaintext:
+6bc1bee22e409f96e93d7e117393172a
+
+key: 
+2b7e151628aed2a6abf7158809cf4f3c
+
+resulting cipher
+3ad77bb40d7a3660a89ecaf32466ef97 
+
+"""
+
+def single_encryption():
+    key = [sgf2n.get_raw_input_from(0) for _ in range(16)]
+    message = [sgf2n.get_raw_input_from(1) for _ in range(16)]
+
+    key = [ApplyEmbedding(_) for _ in key]
+    expanded_key = expandAESKey(key)
+
+    AES = encrypt_without_key_schedule(expanded_key)
+
+    ciphertext = AES(message)
+
+    for block in ciphertext:
+        print_ln('%s', block.reveal())
+
+single_encryption()
