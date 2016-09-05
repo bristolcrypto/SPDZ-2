@@ -24,6 +24,7 @@ double timeval_diff_in_seconds(struct timeval *start_time, struct timeval *end_t
 }
 
 
+#ifndef __MACH__
 long long timespec_diff(struct timespec *start_time, struct timespec *end_time)
 {
   long long sec =end_time->tv_sec -start_time->tv_sec ;
@@ -34,11 +35,16 @@ long long timespec_diff(struct timespec *start_time, struct timespec *end_time)
   }
   return 1000000000*sec+nsec;
 }
+#endif
 
 
 double convert_ns_to_seconds(long long x)
 {
+#ifdef __MACH__
+  return double(x) / 1e6;
+#else
   return double(x) / 1e9;
+#endif
 }
 
 
