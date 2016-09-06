@@ -13,6 +13,11 @@ See also https://www.cs.bris.ac.uk/Research/CryptographySecurity/SPDZ
  - CPU supporting AES-NI and PCLMUL
  - Python 2.x, ideally with `gmpy` package (for testing)
 
+#### OS X:
+ - `g++` might actually refer to clang, in which case you need to change `CONFIG` to use GCC instead.
+ - It has been reported that MPIR has to be compiled with GCC for the linking to work:
+   ```./configure CC=<path to GCC gcc> CXX=<path to GCC g++> --enable-cxx```
+
 #### To compile SPDZ:
 
 1) Optionally, edit CONFIG and CONFIG.mine so that the following variables point to the right locations:
