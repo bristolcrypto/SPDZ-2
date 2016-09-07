@@ -10,14 +10,14 @@ import time
 import sys
 
 
-def run(filename, options, param=-1, merge_opens=True, emulate=True, \
+def run(args, options, param=-1, merge_opens=True, emulate=True, \
             reallocate=True, assemblymode=False, debug=False):
     """ Compile a file and output a Program object.
     
     If merge_opens is set to True, will attempt to merge any parallelisable open
     instructions. """
     
-    prog = Program(filename, options, param, assemblymode)
+    prog = Program(args, options, param, assemblymode)
     instructions.program = prog
     instructions_base.program = prog
     types.program = prog

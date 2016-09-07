@@ -37,9 +37,10 @@ class Program(object):
     
     These are created by executing a file containing appropriate instructions
     and threads. """
-    def __init__(self, name, options, param=-1, assemblymode=False):
+    def __init__(self, args, options, param=-1, assemblymode=False):
         self.options = options
-        self.init_names(name, assemblymode)
+        self.args = args
+        self.init_names(args, assemblymode)
         self.P = P_VALUES[param]
         self.param = param
         self.bit_length = BIT_LENGTHS[param]
@@ -63,10 +64,13 @@ class Program(object):
         self.tape_stack = []
         self.n_threads = 1
         self.free_threads = set()
-        self.public_input_file = open(self.programs_dir + '/Public-Input/%s' % name, 'w')
+        self.public_input_file = open(self.programs_dir + '/Public-Input/%s' % self.name, 'w')
         Program.prog = self
         
         self.reset_values()
+
+    def get_args(self):
+        return self.args
 
     def max_par_tapes(self):
         """ Upper bound on number of tapes that will be run in parallel.
@@ -90,7 +94,7 @@ class Program(object):
             res = max(res, sum(running.itervalues()))
         return res
     
-    def init_names(self, name, assemblymode):
+    def init_names(self, args, assemblymode):
         # ignore path to file - source must be in Programs/Source
         if 'Programs' in os.listdir(os.getcwd()):
             # compile prog in ./Programs/Source directory
@@ -105,17 +109,22 @@ class Program(object):
             if not os.path.exists(self.programs_dir + '/' + dirname):
                 os.mkdir(self.programs_dir + '/' + dirname)
         
-        name = name.split('/')[-1]
-        if name.endswith('.mpc'):
-            self.name = name[:-4]
-        else:
-            self.name = name
+        progname = args[0].split('/')[-1]
+        if progname.endswith('.mpc'):
+            progname = progname[:-4]
         
         if assemblymode:
-            self.infile = self.programs_dir + '/Source/' + self.name + '.asm'
+            self.infile = self.programs_dir + '/Source/' + progname + '.asm'
         else:
-            self.infile = self.programs_dir + '/Source/' + self.name + '.mpc'
-    
+            self.infile = self.programs_dir + '/Source/' + progname + '.mpc'
+        """
+        self.name is input file name (minus extension) + any optional arguments.
+        Used to generate output filenames
+        """
+        self.name = progname
+        if len(args) > 1:
+            self.name += '-' + '-'.join(args[1:])
+
     def new_tape(self, function, args=[], name=None):
         if name is None:
             name = function.__name__

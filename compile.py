@@ -19,7 +19,7 @@ from optparse import OptionParser
 import Compiler
 
 def main():
-    usage = "usage: %prog [options] filename"
+    usage = "usage: %prog [options] filename [args]"
     parser = OptionParser(usage=usage)
     parser.add_option("-n", "--nomerge",
                       action="store_false", dest="merge_opens", default=True,
@@ -61,12 +61,12 @@ def main():
     parser.add_option("-C", "--continous", action="store_true", dest="continuous",
                       help="continuous computation")
     options,args = parser.parse_args()
-    if len(args) != 1:
+    if len(args) < 1:
         parser.print_help()
         return
 
     def compilation():
-        prog = Compiler.run(args[0], options, param=int(options.param),
+        prog = Compiler.run(args, options, param=int(options.param),
                             merge_opens=options.merge_opens, emulate=options.emulate,
                             assemblymode=options.assemblymode, debug=options.debug)
         prog.write_bytes(options.outfile)
