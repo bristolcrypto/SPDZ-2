@@ -434,8 +434,8 @@ class Merger:
 
         reg_nodes = {}
         last_def = defaultdict(lambda: -1)
-        last_mem_write = None
-        last_mem_read = None
+        last_mem_write = []
+        last_mem_read = []
         warned_about_mem = []
         last_mem_write_of = defaultdict(list)
         last_mem_read_of = defaultdict(list)
@@ -556,16 +556,20 @@ class Merger:
 
             if isinstance(instr, ReadMemoryInstruction):
                 if options.preserve_mem_order:
-                    last_mem_read = n
-                    if last_mem_write:
-                        add_edge(last_mem_write, n)
+                    if last_mem_write and last_mem_read and last_mem_write[-1] > last_mem_read[-1]:
+                        last_mem_read[:] = []
+                    last_mem_read.append(n)
+                    for i in last_mem_write:
+                        add_edge(i, n)
                 else:
                     mem_access(n, instr, last_mem_read_of, last_mem_write_of)
             elif isinstance(instr, WriteMemoryInstruction):
                 if options.preserve_mem_order:
-                    last_mem_write = n
-                    if last_mem_read:
-                        add_edge(last_mem_read, n)
+                    if last_mem_write and last_mem_read and last_mem_write[-1] < last_mem_read[-1]:
+                        last_mem_write[:] = []
+                    last_mem_write.append(n)
+                    for i in last_mem_read:
+                        add_edge(i, n)
                 else:
                     mem_access(n, instr, last_mem_write_of, last_mem_read_of)
             # keep I/O instructions in order
