@@ -68,8 +68,8 @@ If we want to run a real MPC computation - P1 shares a and P2 shares b - and
 reveal the sum of the values then we can write the following.
 
 ```
-a = sint.get_raw_input(0)
-b = sint.get_raw_input(1)
+a = sint.get_raw_input_from(0)
+b = sint.get_raw_input_from(1)
 
 c = a + b
 print_ln('Result is %s', c.reveal())
@@ -87,8 +87,8 @@ Suppose party P0 inputs an array of fixed length n: A[1]...A[n] and party P1
 inputs a SS index [index].
 
 ```
-A = [sint.get_raw_input(0) for _ in range(100)]
-index = sint.get_raw_input(1)
+A = [sint.get_raw_input_from(0) for _ in range(100)]
+index = sint.get_raw_input_from(1)
 ```
 
 Let's see how can we obtain [A[i]].
