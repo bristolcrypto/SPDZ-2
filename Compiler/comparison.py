@@ -68,8 +68,8 @@ def divide_by_two(res, x):
     """ Faster clear division by two using a cached value of 2^-1 mod p """
     from program import Program
     import types
-    tape = Program.prog.curr_tape 
-    if len(inverse_of_two) == 0 or tape not in inverse_of_two:
+    tape = Program.prog.curr_block
+    if tape not in inverse_of_two:
         inverse_of_two[tape] = types.cint(1) / 2
     mulc(res, x, inverse_of_two[tape])
 

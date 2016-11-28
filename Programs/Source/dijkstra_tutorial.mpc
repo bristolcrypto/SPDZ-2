@@ -1,0 +1,11 @@
+# (C) 2016 University of Bristol. See License.txt
+
+import dijkstra
+from path_oram import OptimalORAM
+
+n = 1000
+
+dist = dijkstra.test_dijkstra_on_cycle(n, OptimalORAM)
+
+for i in range(n):
+    print_ln('%s: %s', i, dist[i][0].reveal())

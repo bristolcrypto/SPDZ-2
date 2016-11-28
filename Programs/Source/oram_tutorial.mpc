@@ -1,0 +1,7 @@
+# (C) 2016 University of Bristol. See License.txt
+
+from path_oram import OptimalORAM
+
+array = OptimalORAM(10000)
+array[1] = 1
+print_ln('%s', array[1].reveal())

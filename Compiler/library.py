@@ -68,7 +68,7 @@ def print_str(s, *args):
         print_plain_str(ss)
         if i < len(args):
             if isinstance(args[i], MemValue):
-                val = args[i].register
+                val = args[i].read()
             else:
                 val = args[i]
 
