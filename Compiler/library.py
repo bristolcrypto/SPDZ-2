@@ -1,6 +1,6 @@
 # (C) 2016 University of Bristol. See License.txt
 
-from Compiler.types import cint,sint,sfloat,MPCThread,Array,MemValue,cgf2n,sgf2n,_number,_mem,_register,regint,Matrix,_types
+from Compiler.types import cint,sint,cfix,sfix,sfloat,MPCThread,Array,MemValue,cgf2n,sgf2n,_number,_mem,_register,regint,Matrix,_types
 from Compiler.instructions import *
 from Compiler.util import tuplify,untuplify
 from Compiler import instructions,instructions_base,comparison,program
@@ -71,7 +71,6 @@ def print_str(s, *args):
                 val = args[i].read()
             else:
                 val = args[i]
-
             if isinstance(val, program.Tape.Register):
                 if val.reg_type == 'ci':
                     cint(val).print_reg_plain()
@@ -79,6 +78,35 @@ def print_str(s, *args):
                     val.print_reg_plain()
                 else:
                     raise CompilerError('Cannot print secret value:', args[i])
+            elif isinstance(val, cfix):
+                # print decimal representation of a clear fixed point number
+                # number is encoded as [left].[right]
+                left = val.v
+                sign = -1 * (val.v < 0) + 1 * (val.v >= 0)
+                positive_left = sign * left
+                right = positive_left % 2**val.f
+                @if_(sign == -1)
+                def block():
+                    print_str('-')
+                cint((positive_left - right + 1) / 2**val.f).print_reg_plain()
+                x = 0
+                max_dec_base = 6 # max 32-bit precision
+                last_nonzero = 0
+                for i,b in enumerate(reversed(right.bit_decompose(val.f))):
+                    x += b * int(10**max_dec_base / 2**(i + 1))
+                v = x
+                for i in range(max_dec_base):
+                    t = v % 10
+                    b = (t > 0)
+                    last_nonzero = (1 - b) * last_nonzero + b * i
+                    v = (v - t) / 10
+                print_plain_str('.')
+                @for_range(max_dec_base - 1 - last_nonzero)
+                def f(i):
+                    print_str('0')
+                x.print_reg_plain()
+            elif isinstance(val, sfix):
+                raise CompilerError('Cannot print secret value:', args[i])
             elif isinstance(val, list):
                 print_str('[' + ', '.join('%s' for i in range(len(val))) + ']', *val)
             else:
@@ -164,9 +192,9 @@ def load_mem(address, value_type):
 def store_in_mem(value, address):
     if isinstance(value, int):
         value = load_int(value)
-    if isinstance(value, _register):
+    try:
         value.store_in_mem(address)
-    else:
+    except AttributeError:
         # legacy
         if value.is_clear:
             if isinstance(address, cint):
@@ -182,14 +210,15 @@ def store_in_mem(value, address):
 @set_instruction_type
 @vectorize
 def reveal(secret):
-    if isinstance(secret, _number):
+    try:
         return secret.reveal()
-    if secret.is_gf2n:
-        res = cgf2n()
-    else:
-        res = cint()
-    instructions.asm_open(res, secret)
-    return res
+    except AttributeError:
+        if secret.is_gf2n:
+            res = cgf2n()
+        else:
+            res = cint()
+        instructions.asm_open(res, secret)
+        return res
 
 @vectorize
 def compare_secret(a, b, length, sec=40):
@@ -1113,3 +1142,82 @@ def stop_timer(timer_id=0):
     get_tape().start_new_basicblock(name='pre-stop-timer')
     stop(timer_id)
     get_tape().start_new_basicblock(name='post-stop-timer')
+
+# Fixed point ops
+
+from math import ceil, log
+from floatingpoint import PreOR, TruncPr
+
+def FPDiv(a, b, k, f, kappa, simplex_flag=False):
+    """
+        Goldschmidt method as presented in Catrina10,
+    """
+    theta = int(ceil(log(k/3.5)))
+    alpha = cint(1) << (2 * f)
+
+    w = AppRcr(b, k, f, kappa, simplex_flag)
+    x = alpha - b * w
+
+    y = a * w
+    y = TruncPr(y, 2*k, f, kappa)
+
+    for i in range(theta+1):
+        y = y * (alpha + x)
+        x = x * x
+        y = TruncPr(y, 2*k, 2*f, kappa)
+        x = TruncPr(x, 2*k, 2*f, kappa)
+
+    y = y * (alpha + x)
+    y = TruncPr(y, 2*k, 2*f, kappa)
+    return y
+
+def AppRcr(b, k, f, kappa, simplex_flag=False):
+    """
+        Approximate reciprocal of [b]:
+        Given [b], compute [1/b]
+    """
+    alpha = cint(int(2.9142 * (2**k)))
+    c, v = Norm(b, k, f, kappa, simplex_flag)
+    #v should be 2**{k - m} where m is the length of the bitwise repr of [b]
+    d = alpha - 2 * c
+    w = d * v
+    w = TruncPr(w, 2 * k, 2 * (k - f))
+    # now w * 2 ^ {-f} should be an initial approximation of 1/b
+    return w
+
+def Norm(b, k, f, kappa, simplex_flag=False):
+    """
+        Computes secret integer values [c] and [v_prime] st.
+        2^{k-1} <= c < 2^k and c = b*v_prime
+    """
+    # For simplex, we can get rid of computing abs(b)
+    temp = None
+    if simplex_flag == False:
+        if isinstance(b, cint):
+            temp = cint(b < 0)
+        else:
+            temp = b < 0
+    elif simplex_flag == True:
+        temp = cint(0)
+
+    sign = 1 - 2 * temp # 1 - 2 * [b < 0]
+    absolute_val = sign * b
+
+    #next 2 lines actually compute the SufOR for little indian encoding
+    bits = absolute_val.bit_decompose(k)[::-1]
+    suffixes = PreOR(bits)[::-1]
+
+    z = [0] * k
+    for i in range(k - 1):
+        z[i] = suffixes[i] - suffixes[i+1]
+    z[k - 1] = suffixes[k-1]
+
+    #doing complicated stuff to compute v = 2^{k-m}
+    acc = cint(0)
+    for i in range(k):
+        acc += 2**(k-i-1) * z[i]
+
+    part_reciprocal = absolute_val * acc
+    signed_acc = sign * acc
+
+    return part_reciprocal, signed_acc

@@ -1407,6 +1407,358 @@ class sgf2nfloat(sgf2n):
 
 sgf2nfloat.set_precision(24, 8)
 
+def parse_type(other):
+    # converts type to cfix/sfix depending on the case
+    if isinstance(other, cfix.scalars):
+        return cfix(other)
+    elif isinstance(other, cint):
+        tmp = cfix()
+        tmp.load_int(other)
+        return tmp
+    elif isinstance(other, sint):
+        tmp = sfix()
+        tmp.load_int(other)
+        return tmp
+    elif isinstance(other, sfloat):
+        tmp = sfix(other)
+        return tmp
+    else:
+        return other
+
+class cfix(_number):
+    """ Clear fixed point type. """
+    __slots__ = ['value', 'f', 'k', 'size']
+    reg_type = 'c'
+    scalars = (int, long, float)
+    @classmethod
+    def set_precision(cls, f, k = None):
+        # k is the whole bitlength of fixed point
+        # f is the bitlength of decimal part
+        cls.f = f
+        if k is None:
+            cls.k = 2 * f
+        else:
+            cls.k = k
+
+    @vectorized_classmethod
+    def load_mem(cls, address, mem_type=None):
+        res = []
+        res.append(cint.load_mem(address))
+        return cfix(*res)
+
+    @vectorize_init
+    def __init__(self, v=None, size=None):
+        f = self.f
+        k = self.k
+        self.size = get_global_vector_size()
+        if isinstance(v, cint):
+            self.v = cint(v,size=self.size)
+        elif isinstance(v, cfix.scalars):
+            self.v = cint(int(round(v * (2 ** f))),size=self.size)
+        elif isinstance(v, cfix):
+            self.v = v.v
+        elif isinstance(v, MemValue):
+            self.v = v
+        elif v == None:
+            self.v = 0
+
+    @vectorize
+    def load_int(self, v):
+        self.v = cint(v) << self.f
+
+    def conv(self):
+        return self
+
+    def store_in_mem(self, address):
+        self.v.store_in_mem(address)
+
+    def sizeof(self):
+        return self.size * 4
+
+    @vectorize
+    def add(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return cfix(self.v + other.v)
+        elif isinstance(other, sfix):
+            return sfix(self.v + other.v)
+        else:
+            raise CompilerError('Invalid type %s for cfix.__add__' % type(other))
+
+    @vectorize 
+    def mul(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            val = self.v * other.v
+            val >>= self.f
+            return cfix(val)
+        elif isinstance(other, sfix):
+            #truncation is not necessary when one of the inputs is in clear and has
+            #the same resolution as the secret one
+            res = sfix((self.v >> self.f) * other.v)
+            return res
+        else:
+            raise CompilerError('Invalid type %s for cfix.__mul__' % type(other))
+    
+    @vectorize
+    def __sub__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return cfix(self.v - other.v)
+        elif isinstance(other, sfix):
+            return sfix(self.v - other.v)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __neg__(self):
+        # cfix type always has .v
+        return cfix(-self.v)
+    
+    def __rsub__(self, other):
+        return -self + other
+
+    @vectorize
+    def __eq__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return self.v == other.v
+        elif isinstance(other, sfix):
+            return other.v.equal(self.v, self.k, other.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __lt__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return self.v < other.v
+        elif isinstance(other, sfix):
+            if(self.k != other.k or self.f != other.f):
+                raise TypeError('Incompatible fixed point types in comparison')
+            return other.v.greater_than(self.v, self.k, other.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __le__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return self.v <= other.v
+        elif isinstance(other, sfix):
+            return other.v.greater_equal(self.v, self.k, other.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __gt__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return self.v > other.v
+        elif isinstance(other, sfix):
+            return other.v.less_than(self.v, self.k, other.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __ge__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return self.v >= other.v
+        elif isinstance(other, sfix):
+            return other.v.less_equal(self.v, self.k, other.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __ne__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return self.v != other.v
+        elif isinstance(other, sfix):
+            return other.v.not_equal(self.v, self.k, other.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __div__(self, other):
+        other = parse_type(other)
+        if isinstance(other, cfix):
+            return cfix(library.FPDiv(self.v, other.v, self.k, self.f, None))
+        elif isinstance(other, sfix):
+            return sfix(library.FPDiv(self.v, other.v, self.k, self.f, other.kappa))
+        else:
+            raise TypeError('Incompatible fixed point types in division')
+
+class sfix(_number):
+    """ Shared fixed point type. """
+    __slots__ = ['v', 'f', 'k', 'size']
+    reg_type = 's'
+    kappa = 40
+    @classmethod
+    def set_precision(cls, f, k = None):
+        cls.f = f
+        # default bitlength = 2*precision
+        if k is None:
+            cls.k = 2 * f
+        else:
+            cls.k = k
+
+    @vectorized_classmethod
+    def load_mem(cls, address, mem_type=None):
+        res = []
+        res.append(sint.load_mem(address))
+        return sfix(*res)
+
+    @vectorize_init
+    def __init__(self, _v=None, size=None):
+        self.size = get_global_vector_size()
+        f = self.f
+        k = self.k
+        # warning: don't initialize a sfix from a sint, this is only used in internal methods;
+        # for external initialization use load_int.
+        if isinstance(_v, sint):
+            self.v = _v
+        elif isinstance(_v, cfix.scalars):
+            self.v = sint(int(round(_v * (2 ** f))), size=self.size)
+        elif isinstance(_v, sfloat):
+            p = (f + _v.p)
+            b = (p >= 0)
+            a = b*(_v.v << (p)) + (1-b)*(_v.v >> (-p))
+            self.v = (1-2*_v.s)*a
+        elif isinstance(_v, sfix):
+            self.v = _v.v
+        elif isinstance(_v, MemValue):
+            #this is a memvalue object
+            self.v = _v
+        elif _v == None:
+            self.v = sint(0)
+        self.kappa = sfix.kappa 
+
+    @vectorize
+    def load_int(self, v):
+        self.v = sint(v) << self.f
+
+    def conv(self):
+        return self
+
+    def store_in_mem(self, address):
+        self.v.store_in_mem(address)
+
+    def sizeof(self):
+        return self.size * 4
+
+    @vectorize 
+    def add(self, other):
+        other = parse_type(other)
+        if isinstance(other, (sfix, cfix)):
+            return sfix(self.v + other.v)
+        elif isinstance(other, cfix.scalars):
+            tmp = cfix(other)
+            return self + tmp
+        else:
+            raise CompilerError('Invalid type %s for sfix.__add__' % type(other))
+
+    @vectorize 
+    def mul(self, other):
+        other = parse_type(other)
+        if isinstance(other, sfix):
+            val = floatingpoint.TruncPr(self.v * other.v, self.k * 2, self.f, self.kappa)
+            return sfix(val)
+        elif isinstance(other, cfix):
+            res = sfix((self.v >> self.f) * other.v)
+            return res
+        elif isinstance(other, cfix.scalars):
+            scalar_fix = cfix(other)
+            return self * scalar_fix
+        else:
+            raise CompilerError('Invalid type %s for sfix.__mul__' % type(other))
+
+    @vectorize 
+    def __sub__(self, other):
+        other = parse_type(other)
+        return self + (-other)
+
+    @vectorize
+    def __neg__(self):
+        return sfix(-self.v)
+
+    def __rsub__(self, other):
+        return -self + other
+
+    @vectorize
+    def __eq__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return self.v.equal(other.v, self.k, self.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __le__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return self.v.less_equal(other.v, self.k, self.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize 
+    def __lt__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return self.v.less_than(other.v, self.k, self.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __ge__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return self.v.greater_equal(other.v, self.k, self.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __gt__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return self.v.greater_than(other.v, self.k, self.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __ne__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return self.v.not_equal(other.v, self.k, self.kappa)
+        else:
+            raise NotImplementedError
+
+    @vectorize
+    def __div__(self, other):
+        other = parse_type(other)
+        if isinstance(other, (cfix, sfix)):
+            return sfix(library.FPDiv(self.v, other.v, self.k, self.f, self.kappa))
+        else:
+            raise TypeError('Incompatible fixed point types in division')
+
+    @vectorize
+    def compute_reciprocal(self):
+        return sfix(library.FPDiv(cint(1) << self.f, self.v, self.k, self.f, self.kappa, True))
+
+    def reveal(self):
+        val = self.v.reveal()
+        return cfix(val)
+
+# this is for 20 bit decimal precision
+# with 40 bitlength of entire number
+# these constants have been chosen for multiplications to fit in 128 bit prime field
+# (precision n1) 41 + (precision n2) 41 + (stat_sec) 40 = 82 + 40 = 122 <= 128
+# with statistical security of 40
+
+sfix.set_precision(20, 41)
+cfix.set_precision(20, 41)
+
 class sfloat(_number):
     """ Shared floating point data type, representing (1 - 2s)*(1 - z)*v*2^p.
         
@@ -1468,6 +1820,11 @@ class sfloat(_number):
             elif isinstance(v, sint):
                 v, p, z, s = floatingpoint.Int2FL(v, program.bit_length,
                                                   self.vlen, self.kappa)
+            elif isinstance(v, sfix):
+                f = v.f
+                v, p, z, s = floatingpoint.Int2FL(v.v, v.k,
+                                                  self.vlen, self.kappa)
+                p = p - f
             else:
                 v, p, z, s = self.convert_float(v, self.vlen, self.plen)
         if isinstance(v, int):
@@ -1954,6 +2311,9 @@ class MemValue(_mem):
 
     if_else = lambda self,*args,**kwargs: self.read().if_else(*args, **kwargs)
 
+    def __repr__(self):
+        return 'MemValue(%s,%d)' % (self.value_type, self.address)
+
 
 class MemFloat(_mem):
     def __init__(self, *args):
@@ -1972,6 +2332,31 @@ class MemFloat(_mem):
 
     def read(self):
         return sfloat(self.v, self.p, self.z, self.s)
+
+class MemFix(_mem):
+    def __init__(self, *args):
+        arg_type = type(*args)
+        if arg_type == sfix:
+            value = sfix(*args)
+        elif arg_type == cfix:
+            value = cfix(*args)
+        else:
+            raise CompilerError('MemFix init argument error')
+        self.reg_type = value.reg_type
+        self.v = MemValue(value.v)
+
+    def write(self, *args):
+        if self.reg_type == 's':
+            value = sfix(*args)
+        else:
+            value = cfix(*args)
+        self.v.write(value.v)
+
+    def read(self):
+        if self.reg_type == 's':
+            return sfix(self.v)
+        else:
+            return cfix(self.v)
 
 def getNamedTupleType(*names):
     class NamedTuple(object):
@@ -2008,6 +2393,5 @@ def getNamedTupleType(*names):
         def reveal(self):
             return self.__type__(x.reveal() for x in self)
     return NamedTuple
-
 
 import library

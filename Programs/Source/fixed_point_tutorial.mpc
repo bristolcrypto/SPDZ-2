@@ -1,0 +1,55 @@
+# (C) 2016 University of Bristol. See License.txt
+
+program.bit_length = 80
+print "program.bit_length: ", program.bit_length
+program.security = 40
+
+n = 10
+m = 5
+
+# array of fixed points
+A = Array(n, sfix)
+
+for i in range(n):
+	A[i] = sfix(i)
+
+print_ln('mrray of fixed points')
+for i in range(n):
+	print_ln('%s', A[i].reveal())
+
+# matrix of fixed points
+M = Matrix(n, m, sfix)
+
+for i in range(n):
+	for j in range(m):
+		M[i][j] = sfix(i*j)
+
+print_ln('matrix of fixed points')
+for i in range(n):
+	for j in range(m):
+		print_str('%s ', M[i][j].reveal())
+	print_ln(' ')
+
+
+# assign scalar to sfix
+A[5] = sfix(1.12345)
+print_ln('%s', A[5].reveal())
+
+AC = Array(n, cfix)
+
+for i in range(n):
+	AC[i] = cfix(1.5 * i)
+
+for i in range(n):
+	print_ln('%s', AC[i])
+
+# assign sint to sfix
+s = sint(10)
+sa = sfix(); sa.load_int(s)
+print_ln('successfully assigned sint to sfix %s', sa.reveal())
+
+# division between fixed points
+sb = sfix(2.5)
+print_ln('division between %s %s = %s', sa.reveal(), sb.reveal(), (sa/sb).reveal())
+
+
