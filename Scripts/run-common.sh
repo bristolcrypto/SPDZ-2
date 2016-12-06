@@ -18,7 +18,6 @@ run_player() {
     $SPDZROOT/Server.x $players $port &
     rem=$(($players - 2))
     for i in $(seq 0 $rem); do
-      echo "trying with player $i"
       $prefix $SPDZROOT/$bin $i $params 2>&1 | tee $SPDZROOT/logs/$i &
     done
     last_player=$(($players - 1))

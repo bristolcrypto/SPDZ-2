@@ -11,6 +11,4 @@ mem=${4:-empty}
 
 . $HERE/run-common.sh
 
-Scripts/setup-online.sh 2 ${bits} ${g}
-
 run_player Player-Online.x ${1:-test_all} -lgp ${bits} -lg2 ${g} -m ${mem} || exit 1
