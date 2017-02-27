@@ -69,6 +69,8 @@ class gf2n_short
   static int size() { return sizeof(a); }
   static int t()    { return 0; }
 
+  static int default_length() { return 40; }
+
   word get() const { return a; }
   word get_word() const { return a; }
 

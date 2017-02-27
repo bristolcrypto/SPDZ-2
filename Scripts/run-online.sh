@@ -6,7 +6,7 @@ HERE=$(cd `dirname $0`; pwd)
 SPDZROOT=$HERE/..
 
 bits=${2:-128}
-g=${3:-40}
+g=${3:-0}
 mem=${4:-empty}
 
 . $HERE/run-common.sh

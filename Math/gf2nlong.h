@@ -109,6 +109,8 @@ class gf2n_long
   static int size() { return sizeof(a); }
   static int t()    { return 0; }
 
+  static int default_length() { return 128; }
+
   int128 get() const { return a; }
   __m128i to_m128i() const { return a.a; }
   word get_word() const { return _mm_cvtsi128_si64x(a.a); }

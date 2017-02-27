@@ -58,6 +58,12 @@ void gf2n_short::init_tables()
 
 void gf2n_short::init_field(int nn)
 {
+  if (nn == 0)
+    {
+      nn = default_length();
+      cerr << "Using GF(2^" << nn << ")" << endl;
+    }
+
   gf2n_short::init_tables();
   int i,j=-1;
   for (i=0; i<num_2_fields && j==-1; i++)

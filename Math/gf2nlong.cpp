@@ -65,6 +65,12 @@ int long_fields_2[num_2_fields][4] = {
 
 void gf2n_long::init_field(int nn)
 {
+  if (nn == 0)
+    {
+      nn = default_length();
+      cerr << "Using GF(2^" << nn << ")" << endl;
+    }
+
   if (nn!=128) {
       cout << "Compiled for GF(2^128) only. Change parameters or compile "
           "without USE_GF2N_LONG" << endl;
