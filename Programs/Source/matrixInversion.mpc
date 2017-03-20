@@ -1,0 +1,41 @@
+# Initial matrix
+
+length = 3
+A1 = [sfloat(0.1), sfloat(0.2), sfloat(0.3)]
+A2 = [sfloat(0.4), sfloat(0.5), sfloat(0.6)]
+A3 = [sfloat(0.7), sfloat(0.8), sfloat(0.9)]
+
+
+#Extend
+A1 = A1 + [sfloat(1), sfloat(0), sfloat(0)]
+A2 = A1 + [sfloat(0), sfloat(1), sfloat(0)]
+A3 = A1 + [sfloat(0), sfloat(0), sfloat(1)]
+
+A = [A1,A2,A3]
+
+pivot0 = A[0][0]
+#TODO test if 0
+for p in xrange(length):
+    pivot = A[p][p]
+    #Normalize
+    for i in xrange(p,2*length):
+        A[p][i] = A[p][i]/pivot
+    #update rest
+    for i in xrange(p+1,length):
+        for j in xrange(2*length):
+            A[i][j] = A[i][j] - A[p][j]*A[i][p]
+
+print_ln('A[0][0] is v= %s, p = %s, z = %s',A[0][0].v.reveal(), A[0][0].p.reveal(), A[0][0].z.reveal())
+print_ln('A[0][1] is v= %s, p = %s, z = %s',A[0][1].v.reveal(), A[0][1].p.reveal(), A[0][1].z.reveal())
+print_ln('A[0][2] is v= %s, p = %s, z = %s',A[0][2].v.reveal(), A[0][2].p.reveal(), A[0][2].z.reveal())
+print_ln('A[0][5] is v= %s, p = %s, z = %s',A[0][5].v.reveal(), A[0][5].p.reveal(), A[0][5].z.reveal())
+
+print_ln('A[1][0] is v= %s, p = %s, z = %s',A[1][0].v.reveal(), A[1][0].p.reveal(), A[1][0].z.reveal())
+print_ln('A[1][1] is v= %s, p = %s, z = %s',A[1][1].v.reveal(), A[1][1].p.reveal(), A[1][1].z.reveal())
+print_ln('A[1][2] is v= %s, p = %s, z = %s',A[1][2].v.reveal(), A[1][2].p.reveal(), A[1][2].z.reveal())
+print_ln('A[1][5] is v= %s, p = %s, z = %s',A[1][5].v.reveal(), A[1][5].p.reveal(), A[1][5].z.reveal())
+
+print_ln('A[2][0] is v= %s, p = %s, z = %s',A[2][0].v.reveal(), A[2][0].p.reveal(), A[2][0].z.reveal())
+print_ln('A[2][1] is v= %s, p = %s, z = %s',A[2][1].v.reveal(), A[2][1].p.reveal(), A[2][1].z.reveal())
+print_ln('A[2][2] is v= %s, p = %s, z = %s',A[2][2].v.reveal(), A[2][2].p.reveal(), A[2][2].z.reveal())
+print_ln('A[2][5] is v= %s, p = %s, z = %s',A[2][5].v.reveal(), A[2][5].p.reveal(), A[2][5].z.reveal())
