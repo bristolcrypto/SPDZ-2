@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import re
 import math
-from subprocess import call
+import subprocess 
 
 def printusage():
     print """ 
@@ -72,8 +72,11 @@ f.write(str(len(valsNew)))
 f.write('\n')
 f.write(' '.join(map(str, valsNew)))
 f.write('\n')
-f.close
+f.close()
 
 # Call gen_input_fp.x to generate gfp_vals.out
-call(["./gen_input_fp.x"])
+popen = subprocess.Popen("./gen_input_fp.x", stdout=subprocess.PIPE)
+popen.wait()
+output = popen.stdout.read()
+print output
 print "... gfp_vals.out written"

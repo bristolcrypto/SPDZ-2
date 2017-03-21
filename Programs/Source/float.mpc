@@ -1,0 +1,9 @@
+a = sfloat.get_raw_input_from(0)
+b = sfloat.get_raw_input_from(1)
+c = a + b
+
+print_ln('======================')
+print_ln('======================')
+print_ln('result is v=%s, p=%s, z=%s, s=%s', c.v.reveal(), c.p.reveal(), c.z.reveal(), c.s.reveal())
+print_ln('======================')
+print_ln('======================')
