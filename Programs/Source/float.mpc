@@ -3,6 +3,7 @@
 #a = sint(2)
 #b = sint(4)
 
+#helper
 class sfloatHelper:
     @staticmethod
     def get_raw_input_from(player):
