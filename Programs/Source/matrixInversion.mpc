@@ -1,14 +1,31 @@
 import math
-# Initial matrix
+import random
 
+length = 3
+left = 0
+right = 10000
+
+A = []
+for i in xrange(length):
+    temp = []
+    for j in xrange(length):
+        temp.append(sfloat(random.randint(left,right)))
+    A.append(temp)
+
+# Initial matrix
+print_ln("INITIAL")
+for i in xrange(length):
+    for j in xrange(length):
+        print_ln('A[%s][%s] = (%s, %s, %s, %s)', i, j, A[i][j].v.reveal(), A[i][j].p.reveal(), A[i][j].z.reveal(), A[i][j].s.reveal())
+
+str="""
 A1 = [sfloat(1), sfloat(2), sfloat(3)]
 A2 = [sfloat(4), sfloat(4), sfloat(6)]
 A3 = [sfloat(7), sfloat(8), sfloat(9)]
-
 A = [A1, A2, A3]
-
-
 length = len(A[0])
+"""
+
 #Extend
 for i in xrange(length):
     A[i] = A[i] + [sfloat(0)]*(i) + [sfloat(1)] + [sfloat(0)]*(length-i-1)
@@ -33,6 +50,7 @@ for p in reversed(xrange(length)):
         for j in reversed(xrange(p, 2*length)):
             A[i][j] = A[i][j] - A[p][j] * A[i][p]
 #print
+print_ln("INVERSE")
 for i in xrange(length):
     for j in xrange(length, 2*length):
         print_ln('A[%s][%s] = (%s, %s, %s, %s)', i, j, A[i][j].v.reveal(), A[i][j].p.reveal(), A[i][j].z.reveal(), A[i][j].s.reveal())
