@@ -1,7 +1,7 @@
 import math
 import random
 
-length = 3
+length = 10
 left = 0
 right = 10000
 
@@ -18,21 +18,10 @@ for i in xrange(length):
     for j in xrange(length):
         print_ln('A[%s][%s] = (%s, %s, %s, %s)', i, j, A[i][j].v.reveal(), A[i][j].p.reveal(), A[i][j].z.reveal(), A[i][j].s.reveal())
 
-str="""
-A1 = [sfloat(1), sfloat(2), sfloat(3)]
-A2 = [sfloat(4), sfloat(4), sfloat(6)]
-A3 = [sfloat(7), sfloat(8), sfloat(9)]
-A = [A1, A2, A3]
-length = len(A[0])
-"""
 
 #Extend
 for i in xrange(length):
     A[i] = A[i] + [sfloat(0)]*(i) + [sfloat(1)] + [sfloat(0)]*(length-i-1)
-#A1 = A1 + [sfloat(1), sfloat(0), sfloat(0)]
-#A2 = A2 + [sfloat(0), sfloat(1), sfloat(0)]
-#A3 = A3 + [sfloat(0), sfloat(0), sfloat(1)]
-#A = [A1,A2,A3]
 
 #TODO test if 0
 for p in xrange(length):
