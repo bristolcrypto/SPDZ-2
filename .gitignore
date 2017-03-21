@@ -70,3 +70,8 @@ Programs/Public-Input/*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Input files        #
+######################
+*.in
+*.out
