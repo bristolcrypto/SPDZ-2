@@ -1146,14 +1146,14 @@ def stop_timer(timer_id=0):
 # Fixed point ops
 
 from math import ceil, log
-from floatingpoint import PreOR, TruncPr
+from floatingpoint import PreOR, TruncPr, two_power
 
 def FPDiv(a, b, k, f, kappa, simplex_flag=False):
     """
         Goldschmidt method as presented in Catrina10,
     """
-    theta = int(ceil(log(k/3.5)))
-    alpha = cint(1) << (2 * f)
+    theta = int(ceil(log(k/3.5) / log(2)))
+    alpha = two_power(2*f)
 
     w = AppRcr(b, k, f, kappa, simplex_flag)
     x = alpha - b * w
@@ -1176,7 +1176,7 @@ def AppRcr(b, k, f, kappa, simplex_flag=False):
         Approximate reciprocal of [b]:
         Given [b], compute [1/b]
     """
-    alpha = cint(int(2.9142 * (2**k)))
+    alpha = cint(int(2.9142 * 2**k))
     c, v = Norm(b, k, f, kappa, simplex_flag)
     #v should be 2**{k - m} where m is the length of the bitwise repr of [b]
     d = alpha - 2 * c
@@ -1196,7 +1196,7 @@ def Norm(b, k, f, kappa, simplex_flag=False):
         if isinstance(b, cint):
             temp = cint(b < 0)
         else:
-            temp = b < 0
+            temp = sint(b < 0)
     elif simplex_flag == True:
         temp = cint(0)
 
@@ -1215,7 +1215,7 @@ def Norm(b, k, f, kappa, simplex_flag=False):
     #doing complicated stuff to compute v = 2^{k-m}
     acc = cint(0)
     for i in range(k):
-        acc += 2**(k-i-1) * z[i]
+        acc += two_power(k-i-1) * z[i]
 
     part_reciprocal = absolute_val * acc
     signed_acc = sign * acc

@@ -21,6 +21,15 @@ def two_power(n):
             res *= max
         return res
 
+def shift_two(n, pos):
+    if pos < 63:
+        return n >> pos
+    else:
+        res = (n >> (pos%63))
+        for i in range(pos / 63):
+            res >>= 63
+        return res
+
 def EQZ(a, k, kappa):
     r_dprime = types.sint()
     r_prime = types.sint()
@@ -391,6 +400,9 @@ def TruncPr(a, k, m, kappa=None):
     """ Probabilistic truncation [a/2^m + u]
         where Pr[u = 1] = (a % 2^m) / 2^m
     """
+    if isinstance(a, types.cint):
+        return shift_two(a, m)
+
     if kappa is None:
        kappa = 40
  
@@ -507,11 +519,4 @@ def Norm(b, k, f, kappa):
     c = x * v
     v_prime = sign * v
     return c, v_prime
-
-
-
-
-
-
-
 
