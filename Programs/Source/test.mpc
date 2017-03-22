@@ -1,0 +1,12 @@
+import math
+from Compiler import types
+
+def print_float(x):
+    v = x.v.reveal()
+    p = x.p.reveal()
+    z = x.z.reveal()
+    s = x.s.reveal()
+
+    print_ln("%s,%s,%s,%s", v, p, z, s)
+
+print_float(sfloat(1.4324))
