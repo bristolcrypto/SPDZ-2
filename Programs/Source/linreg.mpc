@@ -51,6 +51,8 @@ def inverse(A):
             print_str("\n")
         print_str("\n")
 
+    return [[A[i][k+j] for j in xrange(k)] for i in xrange(k)]
+
 def print_float(x):
     v = x.v.reveal()
     p = x.p.reveal()
@@ -92,11 +94,12 @@ for i in xrange(k):
 
 
 XtXInv = inverse(A)
-#
-# # compute X^T y
-# tmp = [scalarProd(X[i], y) for i in xrange(k)]
-# # compute theta
-# theta = [scalarProd([A[i][k+j] for j in xrange(k)], tmp) for i in range(k)]
-#
-# for i in xrange(k):
-#     print_ln("theta[%s] = (%s,%s,%s,%s)", i, theta[i].v.reveal(), theta[i].p.reveal(), theta[i].z.reveal(), theta[i].s.reveal())
+
+# compute X^T y
+tmp = [scalarProd(X[i], y) for i in xrange(k)]
+# compute theta
+#theta = [scalarProd([A[i][k+j] for j in xrange(k)], tmp) for i in range(k)]
+theta = [scalarProd(XtXInv[i], tmp) for i in range(k)]
+
+for i in xrange(k):
+    print_ln("theta[%s] = (%s,%s,%s,%s)", i, theta[i].v.reveal(), theta[i].p.reveal(), theta[i].z.reveal(), theta[i].s.reveal())
