@@ -18,7 +18,7 @@ def procRaw(raw):
 # computes scalar product of two vectors of sfloats
 def scalarProd(v, w):
     sum = sfloat(0)
-    for i in range(0, len(v)):
+    for i in range(len(v)):
         sum = sum + v[i]*w[i]
     return sum
 
@@ -28,28 +28,27 @@ def inverse(A):
     # extend
     for i in xrange(k):
         A[i] = A[i] + [sfloat(0)] * (i) + [sfloat(1)] + [sfloat(0)] * (k - i - 1)
-
     # TODO test if 0
-    for p in xrange(0, k):
+    for p in xrange(k):
         pivot = A[p][p]
         # Normalize
         for j in xrange(p, 2 * k):
             A[p][j] = A[p][j] / pivot
-            # update rest
-            for i in xrange(p + 1, k):
-                for j in reversed(xrange(2 * k)):
-                    A[i][j] = A[i][j] - A[p][j] * A[i][p]
+        # update rest
+        for i in xrange(p + 1, k):
+            for j in reversed(xrange(2 * k)):
+                A[i][j] = A[i][j] - A[p][j] * A[i][p]
     # backwards
     for p in reversed(xrange(k)):
-        for i in xrange(0, p):
+        for i in xrange(p):
             for j in reversed(xrange(p, 2 * k)):
                 A[i][j] = A[i][j] - A[p][j] * A[i][p]
     print_ln("INVERTING THE MATRIX:")
-    for p in xrange(0, k):
-        for j in xrange(0, 2 * k):
+    for p in xrange(k):
+        for j in xrange(k, 2 * k):
             print_str("Inv[%s][%s]=", p, j)
             print_float(A[p][j])
-            print_str(" ")
+            print_str("\n")
         print_str("\n")
 
 def print_float(x):
@@ -58,34 +57,34 @@ def print_float(x):
     z = x.z.reveal()
     s = x.s.reveal()
 
-    print_str("%s,%s,%s,%s", v, p, z, s)
+    print_str("(%s,%s,%s,%s)", v, p, z, s)
 
 
 # read y and X data
-ydata, Xdata = procData("/Users/jetchev/MPC/SPDZ-2/Programs/Data/y.txt", "/Users/jetchev/MPC/SPDZ-2/Programs/Data/X.txt")
+ydata, Xdata = procData("Programs/Data/y.txt", "Programs/Data/X.txt")
 
 y = [sfloat(float(ystr)) for ystr in ydata]
 Xt = [procRaw(raw) for raw in Xdata]
 
 N = len(y)
 k = len(Xt[1])
-X = [[Xt[j][i] for j in xrange(0, N)] for i in xrange(0, k)]
+X = [[Xt[j][i] for j in xrange(N)] for i in xrange(k)]
 
 print_ln("y[%s] = (%s,%s,%s,%s)", 0, y[0].v.reveal(), y[0].p.reveal(), y[0].z.reveal(), y[0].s.reveal())
 
-for i in xrange(0, k):
-    for j in xrange(0, N):
+for i in xrange(k):
+    for j in xrange(N):
         print_ln("X[%s][%s] = (%s,%s,%s,%s)", i, j, X[i][j].v.reveal(), X[i][j].p.reveal(), X[i][j].z.reveal(), X[i][j].s.reveal())
 
 # compute X^T X
-A = [[sfloat(0) for i in xrange(0, k)] for j in xrange(0, k)]
-for i in xrange(0, k):
+A = [[sfloat(0) for i in xrange(k)] for j in xrange(k)]
+for i in xrange(k):
     for j in xrange(i, k):
         A[i][j] = scalarProd(X[i], X[j])
         A[j][i] = A[i][j]
 
-for i in xrange(0, k):
-    for j in xrange(0, k):
+for i in xrange(k):
+    for j in xrange(k):
         print_str("A[%s][%s]=", i, j)
         print_float(A[i][j])
         print_str(" ")
@@ -95,9 +94,9 @@ for i in xrange(0, k):
 XtXInv = inverse(A)
 #
 # # compute X^T y
-# tmp = [scalarProd(X[i], y) for i in xrange(0, k)]
+# tmp = [scalarProd(X[i], y) for i in xrange(k)]
 # # compute theta
-# theta = [scalarProd([A[i][k+j] for j in xrange(0, k)], tmp) for i in range(0, k)]
+# theta = [scalarProd([A[i][k+j] for j in xrange(k)], tmp) for i in range(k)]
 #
-# for i in xrange(0, k):
+# for i in xrange(k):
 #     print_ln("theta[%s] = (%s,%s,%s,%s)", i, theta[i].v.reveal(), theta[i].p.reveal(), theta[i].z.reveal(), theta[i].s.reveal())
