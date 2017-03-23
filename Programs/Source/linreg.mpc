@@ -63,7 +63,7 @@ def print_float(x):
 
 
 # read y and X data
-ydata, Xdata = procData("Programs/Data/y.txt", "Programs/Data/X.txt")
+ydata, Xdata = procData("Programs/Data/y.3.485.txt", "Programs/Data/X.3.485.txt")
 
 y = [sfloat(float(ystr)) for ystr in ydata]
 Xt = [procRaw(raw) for raw in Xdata]

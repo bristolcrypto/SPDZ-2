@@ -1,0 +1,18 @@
+import math
+input = sfloat(50)
+
+def exponential(base):
+    increment = base
+    exp = sfloat(1)
+    iterations = 10
+    for i in xrange(1,iterations):
+        exp = exp + increment/sfloat(math.factorial(i))
+        increment = base*increment
+    return exp
+
+base = input
+iterations = 10
+for _ in xrange(iterations):
+    exp = exponential(input)
+    input = input + sfloat(2)* (base-exp)/(base+exp)
+print_ln("log((%s,%s,%s,%s)) = (%s,%s,%s,%s)", base.v.reveal(), base.p.reveal(), base.z.reveal(), base.s.reveal(), input.v.reveal(), input.p.reveal(), input.z.reveal(), input.s.reveal())
