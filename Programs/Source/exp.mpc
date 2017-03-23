@@ -1,0 +1,9 @@
+import math
+base = sfloat(-2)
+increment = base
+exp = sfloat(1)
+iterations = 20
+for i in xrange(1,iterations):
+    exp = exp + increment/sfloat(math.factorial(i))
+    increment = base*increment
+print_ln("exp((%s,%s,%s,%s)) = (%s,%s,%s,%s)", base.v.reveal(), base.p.reveal(), base.z.reveal(), base.s.reveal(), exp.v.reveal(), exp.p.reveal(), exp.z.reveal(), exp.s.reveal())
