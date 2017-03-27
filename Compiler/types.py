@@ -1744,7 +1744,7 @@ class sfix(_number):
 
     @vectorize
     def compute_reciprocal(self):
-        return sfix(library.FPDiv(cint(1) << self.f, self.v, self.k, self.f, self.kappa, True))
+        return sfix(library.FPDiv(cint(2) ** self.f, self.v, self.k, self.f, self.kappa, True))
 
     def reveal(self):
         val = self.v.reveal()
