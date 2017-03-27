@@ -2,17 +2,31 @@ import math
 input = sfloat(50)
 
 def exponential(base):
+    global exp
+    global increment
+    global fac
+    fac = 0
     increment = base
     exp = sfloat(1)
-    iterations = 10
-    for i in xrange(1,iterations):
-        exp = exp + increment/sfloat(math.factorial(i))
+    iterations = 1000
+    @for_range(iterations)
+    def f(i):
+        global increment
+        global exp
+        global fac
+        exp = exp + increment/sfloat(math.factorial(fac))
         increment = base*increment
+        fac += 1
     return exp
 
 base = input
-iterations = 10
-for _ in xrange(iterations):
+iterations = 1000
+base2 = sfloat(2)
+@for_range(iterations)
+def f(i):
+    global input
+    global base
+    global base2
     exp = exponential(input)
-    input = input + sfloat(2)* (base-exp)/(base+exp)
+    input = input + base2* (base-exp)/(base+exp)
 print_ln("log((%s,%s,%s,%s)) = (%s,%s,%s,%s)", base.v.reveal(), base.p.reveal(), base.z.reveal(), base.s.reveal(), input.v.reveal(), input.p.reveal(), input.z.reveal(), input.s.reveal())
