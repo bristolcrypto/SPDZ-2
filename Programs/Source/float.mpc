@@ -8,3 +8,9 @@ print_ln('result is v=%s, p=%s, z=%s, s=%s', c.v.reveal(), c.p.reveal(), c.z.rev
 print_ln('float: f=%s', sfix(c).reveal())
 print_ln('======================')
 print_ln('======================')
+
+
+c.v.reveal_to(0)
+c.p.reveal_to(0)
+c.z.reveal_to(0)
+c.s.reveal_to(0)

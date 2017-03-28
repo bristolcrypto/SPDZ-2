@@ -69,6 +69,9 @@ gen_input_f2n.x: Scripts/gen_input_f2n.cpp $(COMMON)
 gen_input_fp.x: Scripts/gen_input_fp.cpp $(COMMON)
 	$(CXX) $(CFLAGS) Scripts/gen_input_fp.cpp	-o gen_input_fp.x $(COMMON) $(LDLIBS)
 
+gen_output_fp.x: Scripts/gen_output_fp.cpp $(COMMON)
+	$(CXX) $(CFLAGS) Scripts/gen_output_fp.cpp	-o gen_output_fp.x $(COMMON) $(LDLIBS)
+
 
 clean:
 	-rm */*.o *.o *.x core.* *.a gmon.out
