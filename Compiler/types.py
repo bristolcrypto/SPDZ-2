@@ -1464,7 +1464,7 @@ class cfix(_number):
 
     @vectorize
     def load_int(self, v):
-        self.v = cint(v) << self.f
+        self.v = cint(v) * (2 ** self.f)
 
     def conv(self):
         return self
@@ -1489,13 +1489,12 @@ class cfix(_number):
     def mul(self, other):
         other = parse_type(other)
         if isinstance(other, cfix):
-            val = self.v * other.v
-            val >>= self.f
+            sgn = cint(1 - 2 * (self.v * other.v < 0))
+            absolute = self.v * other.v * sgn
+            val = sgn * (absolute >> self.f)
             return cfix(val)
         elif isinstance(other, sfix):
-            #truncation is not necessary when one of the inputs is in clear and has
-            #the same resolution as the secret one
-            res = sfix((self.v >> self.f) * other.v)
+            res = sfix((self.v * other.v) >> self.f)
             return res
         else:
             raise CompilerError('Invalid type %s for cfix.__mul__' % type(other))
@@ -1584,7 +1583,7 @@ class cfix(_number):
     def __div__(self, other):
         other = parse_type(other)
         if isinstance(other, cfix):
-            return cfix(library.FPDiv(self.v, other.v, self.k, self.f, None))
+            return cfix(library.cint_cint_division(self.v, other.v, self.k, self.f))
         elif isinstance(other, sfix):
             return sfix(library.FPDiv(self.v, other.v, self.k, self.f, other.kappa))
         else:
@@ -1666,7 +1665,7 @@ class sfix(_number):
             val = floatingpoint.TruncPr(self.v * other.v, self.k * 2, self.f, self.kappa)
             return sfix(val)
         elif isinstance(other, cfix):
-            res = sfix((self.v >> self.f) * other.v)
+            res = sfix((self.v * other.v) >> sfix.f)
             return res
         elif isinstance(other, cfix.scalars):
             scalar_fix = cfix(other)
@@ -1737,8 +1736,10 @@ class sfix(_number):
     @vectorize
     def __div__(self, other):
         other = parse_type(other)
-        if isinstance(other, (cfix, sfix)):
+        if isinstance(other, sfix):
             return sfix(library.FPDiv(self.v, other.v, self.k, self.f, self.kappa))
+        elif isinstance(other, cfix):
+            return sfix(library.sint_cint_division(self.v, other.v, self.k, self.f, self.kappa))
         else:
             raise TypeError('Incompatible fixed point types in division')
 

@@ -1148,20 +1148,137 @@ def stop_timer(timer_id=0):
 from math import ceil, log
 from floatingpoint import PreOR, TruncPr, two_power
 
+def approximate_reciprocal(divisor, k, f, theta):
+    """
+        returns aproximation of 1/divisor
+        where type(divisor) = cint
+    """
+    def twos_complement(x):
+        bits = x.bit_decompose(k)[::-1]
+        bit_array = Array(k, cint)
+        bit_array.assign(bits)
+
+        twos_result = MemValue(cint(0))
+        @for_range(k)
+        def block(i):
+            val = twos_result.read()
+            val <<= 1
+            val += 1 - bit_array[i]
+            twos_result.write(val)
+
+        return twos_result.read() + 1
+
+    bit_array = Array(k, cint)
+    bits = divisor.bit_decompose(k)[::-1]
+    bit_array.assign(bits)
+
+    cnt_leading_zeros = MemValue(regint(0))
+
+    flag = MemValue(regint(0))
+    cnt_leading_zeros = MemValue(regint(0))
+    normalized_divisor = MemValue(divisor)
+
+    @for_range(k)
+    def block(i):
+        flag.write(flag.read() | bit_array[i] == 1)
+        @if_(flag.read() == 0)
+        def block():
+            cnt_leading_zeros.write(cnt_leading_zeros.read() + 1)
+            normalized_divisor.write(normalized_divisor << 1)
+
+    q = MemValue(two_power(k))
+    e = MemValue(twos_complement(normalized_divisor.read()))
+
+    @for_range(theta)
+    def block(i):
+        qread = q.read()
+        eread = e.read()
+        qread += (qread * eread) >> k
+        eread = (eread * eread) >> k
+
+        q.write(qread)
+        e.write(eread)
+
+    res = q >> (2*k - 2*f - cnt_leading_zeros)
+
+    return res
+
+
+def cint_cint_division(a, b, k, f):
+    """
+        Goldschmidt method implemented with
+        SE aproximation:
+        http://stackoverflow.com/questions/2661541/picking-good-first-estimates-for-goldschmidt-division
+    """
+    # theta can be replaced with something smaller
+    # for safety we assume that is the same theta from previous GS method
+
+    theta = int(ceil(log(k/3.5) / log(2)))
+    two = cint(2) * two_power(f)
+
+    sign_b = cint(1) - 2 * cint(b < 0)
+    sign_a = cint(1) - 2 * cint(a < 0)
+    absolute_b = b * sign_b
+    absolute_a = a * sign_a
+    w0 = approximate_reciprocal(absolute_b, k, f, theta)
+
+    A = Array(theta, cint)
+    B = Array(theta, cint)
+    W = Array(theta, cint)
+
+    A[0] = absolute_a
+    B[0] = absolute_b
+    W[0] = w0
+    @for_range(1, theta)
+    def block(i):
+        A[i] = (A[i - 1] * W[i - 1]) >> f
+        B[i] = (B[i - 1] * W[i - 1]) >> f
+        W[i] = two - B[i]
+    return (sign_a * sign_b) * A[theta - 1]
+
+from Compiler.program import Program
+def sint_cint_division(a, b, k, f, kappa):
+    """
+        type(a) = sint, type(b) = cint
+    """
+    theta = int(ceil(log(k/3.5) / log(2)))
+    two = cint(2) * two_power(f)
+    sign_b = cint(1) - 2 * cint(b < 0)
+    sign_a = sint(1) - 2 * sint(a < 0)
+    absolute_b = b * sign_b
+    absolute_a = a * sign_a
+    w0 = approximate_reciprocal(absolute_b, k, f, theta)
+
+    A = Array(theta, sint)
+    B = Array(theta, cint)
+    W = Array(theta, cint)
+
+    A[0] = absolute_a
+    B[0] = absolute_b
+    W[0] = w0
+
+    @for_range(1, theta)
+    def block(i):
+        A[i] = TruncPr(A[i - 1] * W[i - 1], 2*k, f, kappa)
+        temp = (B[i - 1] * W[i - 1]) >> f
+        # no reading and writing to the same variable in a for loop.
+        W[i] = two - temp
+        B[i] = temp
+    return (sign_a * sign_b) * A[theta - 1]
+
 def FPDiv(a, b, k, f, kappa, simplex_flag=False):
     """
         Goldschmidt method as presented in Catrina10,
     """
     theta = int(ceil(log(k/3.5) / log(2)))
     alpha = two_power(2*f)
-
     w = AppRcr(b, k, f, kappa, simplex_flag)
     x = alpha - b * w
 
     y = a * w
     y = TruncPr(y, 2*k, f, kappa)
 
-    for i in range(theta+1):
+    for i in range(theta):
         y = y * (alpha + x)
         x = x * x
         y = TruncPr(y, 2*k, 2*f, kappa)
@@ -1170,7 +1287,6 @@ def FPDiv(a, b, k, f, kappa, simplex_flag=False):
     y = y * (alpha + x)
     y = TruncPr(y, 2*k, 2*f, kappa)
     return y
-
 def AppRcr(b, k, f, kappa, simplex_flag=False):
     """
         Approximate reciprocal of [b]:
@@ -1193,10 +1309,7 @@ def Norm(b, k, f, kappa, simplex_flag=False):
     # For simplex, we can get rid of computing abs(b)
     temp = None
     if simplex_flag == False:
-        if isinstance(b, cint):
-            temp = cint(b < 0)
-        else:
-            temp = sint(b < 0)
+        temp = sint(b < 0)
     elif simplex_flag == True:
         temp = cint(0)
 
