@@ -2,6 +2,12 @@ a = sfloat.get_raw_input_from(0)
 b = sfloat.get_raw_input_from(1)
 c = a + b
 
+def float_reveal_to(sfloat, player):
+    sfloat.v.reveal_to(player)
+    sfloat.p.reveal_to(player)
+    sfloat.z.reveal_to(player)
+    sfloat.s.reveal_to(player)
+
 print_ln('======================')
 print_ln('======================')
 print_ln('result is v=%s, p=%s, z=%s, s=%s', c.v.reveal(), c.p.reveal(), c.z.reveal(), c.s.reveal())
@@ -9,8 +15,7 @@ print_ln('float: f=%s', sfix(c).reveal())
 print_ln('======================')
 print_ln('======================')
 
-
-c.v.reveal_to(0)
-c.p.reveal_to(0)
-c.z.reveal_to(0)
-c.s.reveal_to(0)
+# To print the private output of player 0:
+# - cp Player-Data/Private-Output-0 gfp_output_vals.in
+# - ./gen_output_float.py
+float_reveal_to(c,0)
