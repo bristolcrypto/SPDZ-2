@@ -1835,7 +1835,7 @@ class sfloat(_number):
         else:
             self.v = v
         if isinstance(p, int):
-            if not (p >= -2**self.plen and p < (2**self.plen - 1)):
+            if not (p >= -2**(self.plen - 1) and p < 2**(self.plen - 1)):
                 raise CompilerError('Floating point number malformed: exponent')
             self.p = library.load_int_to_secret(p)
         else:
