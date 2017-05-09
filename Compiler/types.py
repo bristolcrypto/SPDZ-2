@@ -1799,14 +1799,18 @@ class sfloat(_number):
             z = 1
         else:
             p = int(math.floor(math.log(abs(v), 2))) - vlen + 1
+            vv = v
             v = int(round(abs(v) * 2 ** (-p)))
             if v == 2 ** vlen:
                 p += 1
                 v /= 2
             z = 0
-            if abs(p) >= 2 ** plen:
+            if p < -2 ** (plen - 1):
+                print 'Warning: %e truncated to zero' % vv
+                v, p, z = 0, 0, 1
+            if p >= 2 ** (plen - 1):
                 raise CompilerError('Cannot convert %s to float ' \
-                                        'with %d exponent bits' % (v, plen))
+                                        'with %d exponent bits' % (vv, plen))
         return v, p, z, s
 
     @vectorize_init
@@ -1836,7 +1840,7 @@ class sfloat(_number):
             self.v = v
         if isinstance(p, int):
             if not (p >= -2**(self.plen - 1) and p < 2**(self.plen - 1)):
-                raise CompilerError('Floating point number malformed: exponent')
+                raise CompilerError('Floating point number malformed: exponent %d not unsigned %d-bit integer' % (p, self.plen))
             self.p = library.load_int_to_secret(p)
         else:
             self.p = p
