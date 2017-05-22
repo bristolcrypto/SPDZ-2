@@ -594,6 +594,8 @@ class Merger:
                 keep_order(instr, n, stopprivateoutput_class, 1)
             elif isinstance(instr, prep_class):
                 keep_order(instr, n, instr.args[0])
+            elif isinstance(instr, StackInstruction):
+                keep_order(instr, n, StackInstruction)
 
             if not G.pred[n]:
                 self.sources.append(n)

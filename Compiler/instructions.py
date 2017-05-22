@@ -255,13 +255,13 @@ class movint(base.Instruction):
     arg_format = ['ciw','ci']
 
 @base.vectorize
-class pushint(base.Instruction):
+class pushint(base.StackInstruction):
     r""" Pushes register $ci_i$ to the thread-local stack. """
     code = base.opcodes['PUSHINT']
     arg_format = ['ci']
 
 @base.vectorize
-class popint(base.Instruction):
+class popint(base.StackInstruction):
     r""" Pops from the thread-local stack to register $ci_i$. """
     code = base.opcodes['POPINT']
     arg_format = ['ciw']

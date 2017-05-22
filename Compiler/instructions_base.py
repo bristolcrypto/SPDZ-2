@@ -662,6 +662,10 @@ class IntegerInstruction(Instruction):
     __slots__ = []
     arg_format = ['ciw', 'ci', 'ci']
 
+class StackInstruction(Instruction):
+    """ Base class for thread-local stack instructions. """
+    __slots__ = []
+
 ###
 ### Clear comparison instructions
 ###
