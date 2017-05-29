@@ -8,6 +8,7 @@
 #include "Tools/time-func.h"
 
 #include <stdlib.h>
+#include <math.h>
 #include <algorithm>
 #include <sstream>
 #include <map>
@@ -35,6 +36,18 @@ int get_int(istream& s)
   return n;
 }
 
+long gfpToLong(bigint& tmp, gfp& g){
+     to_bigint(tmp, g);
+     long ret =  tmp.get_si();
+     if (ret < 0){
+        //Dirty trick to allow conversion
+         g.negate();
+         to_bigint(tmp, g);
+         ret = tmp.get_si();
+         ret *= -1;
+     }
+     return ret;
+ }
 
 // Convert modp to signed bigint of a given bit length
 void to_signed_bigint(bigint& bi, const gfp& x, int len)
@@ -124,6 +137,7 @@ void Instruction::parse(istream& s)
       case SUBINT:
       case MULINT:
       case DIVINT:
+      case PRINTFLOATPLAIN:
         r[0]=get_int(s);
         r[1]=get_int(s);
         r[2]=get_int(s);
@@ -1427,6 +1441,20 @@ void Instruction::execute(Processor& Proc) const
              cout << Proc.read_C2(r[0]) << flush;
            }
         break;
+      case PRINTFLOATPLAIN:
+        if (Proc.P.my_num() == 0)
+            {
+                 gfp v = Proc.read_Cp(r[0]);
+                 gfp p = Proc.read_Cp(r[1]);
+                 gfp s = Proc.read_Cp(r[2]);
+                 long lv = gfpToLong(Proc.temp.aa, v);
+                 long lp = gfpToLong(Proc.temp.aa2, p);
+                 double res = (double)lv * pow(2.0,lp);
+                 if(!s.is_zero())
+                    res *= -1;
+                 cout << res <<flush;
+            }
+      break;
       case PRINTSTR:
         if (Proc.P.my_num() == 0)
            {

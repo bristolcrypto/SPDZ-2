@@ -2027,6 +2027,27 @@ class sfloat(_number):
         """ Gets actual floating point value, if emulation is enabled. """
         return (1 - 2*self.s.value)*(1 - self.z.value)*self.v.value/float(2**self.p.value)
 
+    def reveal(self):
+        return cfloat(self.v.reveal(), self.p.reveal(), self.z.reveal(), self.s.reveal())
+
+class cfloat(object):
+    # Helper class used for printing sfloats
+    __slots__ = ['v', 'p', 'z', 's']
+    instruction_type = 'modp'
+    size = 1
+
+    def __init__(self, v, p, z, s):
+        if not isinstance(v, cint) or not isinstance(p, cint) or not isinstance(z,cint) or not isinstance(s, cint):
+            raise CompilerError("Cfloat construction requires cints")
+        self.v = v
+        self.p = p
+        self.z = z
+        self.s = s
+
+    @set_instruction_type
+    @vectorize
+    def print_float_plain(self):
+        print_float_plain(self.v, self.p, self.s)
 
 _types = {
     'c': cint,

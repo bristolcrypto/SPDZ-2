@@ -908,6 +908,14 @@ class print_reg_plain(base.IOInstruction):
     code = base.opcodes['PRINTREGPLAIN']
     arg_format = ['c']
 
+
+@base.vectorize
+class print_float_plain(base.IOInstruction):
+    __slots__ = []
+    code = base.opcodes['PRINTFLOATPLAIN']
+    arg_format = ['c', 'c', 'c']
+
+
 class print_char(base.IOInstruction):
     r""" Print a single character to stdout. """
     code = base.opcodes['PRINTCHR']

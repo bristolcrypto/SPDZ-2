@@ -148,6 +148,7 @@ opcodes = dict(
     STOPPRIVATEOUTPUT = 0xB9,
     PRINTCHRINT = 0xBA,
     PRINTSTRINT = 0xBB,
+    PRINTFLOATPLAIN = 0xBC,
     GBITDEC = 0x184,
     GBITCOM = 0x185,
 )

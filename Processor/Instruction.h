@@ -155,6 +155,7 @@ enum
     STOPPRIVATEOUTPUT = 0xB9,
     PRINTCHRINT = 0xBA,
     PRINTSTRINT = 0xBB,
+    PRINTFLOATPLAINt  = 0xBC,
 
     // GF(2^n) versions
     
