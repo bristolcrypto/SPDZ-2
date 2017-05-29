@@ -8,7 +8,7 @@
 #include "Tools/time-func.h"
 
 #include <stdlib.h>
-#include <math.h>
+#include <cmath>
 #include <algorithm>
 #include <sstream>
 #include <map>
@@ -45,6 +45,7 @@ long gfpToLong(bigint& tmp, gfp& g){
          to_bigint(tmp, g);
          ret = tmp.get_si();
          ret *= -1;
+         g.negate();
      }
      return ret;
  }
