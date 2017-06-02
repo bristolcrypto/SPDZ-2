@@ -1813,6 +1813,14 @@ class sfloat(_number):
                                         'with %d exponent bits' % (vv, plen))
         return v, p, z, s
 
+    @staticmethod
+    def get_raw_input_from(player):
+	v = sint.get_raw_input_from(player)
+	p = sint.get_raw_input_from(player)
+	z = sint.get_raw_input_from(player)
+	s = sint.get_raw_input_from(player)
+	return sfloat(v,p,z,s)
+
     @vectorize_init
     def __init__(self, v, p=None, z=None, s=None, size=None):
         self.size = get_global_vector_size()

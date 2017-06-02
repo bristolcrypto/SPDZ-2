@@ -1,0 +1,15 @@
+import math
+input = sfloat(500000)
+
+const2 = sfloat(2)
+
+base = input
+#todo find better starting point
+iterations = 200
+@for_range(iterations)
+def f(i):
+    global input
+    global const2
+    global base
+    input =  input - (input*input - base)/(const2*input)
+print_ln("sqrt((%s,%s,%s,%s)) = (%s,%s,%s,%s)", base.v.reveal(), base.p.reveal(), base.z.reveal(), base.s.reveal(), input.v.reveal(), input.p.reveal(), input.z.reveal(), input.s.reveal())
