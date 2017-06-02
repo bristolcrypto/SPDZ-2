@@ -8,7 +8,6 @@
 #include "Tools/time-func.h"
 
 #include <stdlib.h>
-#include <cmath>
 #include <algorithm>
 #include <sstream>
 #include <map>
@@ -35,20 +34,6 @@ int get_int(istream& s)
     }
   return n;
 }
-
-long gfpToLong(bigint& tmp, gfp& g){
-     to_bigint(tmp, g);
-     long ret =  tmp.get_si();
-     if (ret < 0){
-        //Dirty trick to allow conversion
-         g.negate();
-         to_bigint(tmp, g);
-         ret = tmp.get_si();
-         ret *= -1;
-         g.negate();
-     }
-     return ret;
- }
 
 // Convert modp to signed bigint of a given bit length
 void to_signed_bigint(bigint& bi, const gfp& x, int len)
@@ -138,7 +123,6 @@ void Instruction::parse(istream& s)
       case SUBINT:
       case MULINT:
       case DIVINT:
-      case PRINTFLOATPLAIN:
         r[0]=get_int(s);
         r[1]=get_int(s);
         r[2]=get_int(s);
@@ -296,6 +280,10 @@ void Instruction::parse(istream& s)
       case CRASH:
       case CLOSESOCKET:
 	break;
+      // instructions with 4 register operands
+      case PRINTFLOATPLAIN:
+        get_vector(4, start, s);
+        break;
       // open instructions
       case STARTOPEN:
       case STOPOPEN:
@@ -1444,17 +1432,28 @@ void Instruction::execute(Processor& Proc) const
         break;
       case PRINTFLOATPLAIN:
         if (Proc.P.my_num() == 0)
-            {
-                 gfp v = Proc.read_Cp(r[0]);
-                 gfp p = Proc.read_Cp(r[1]);
-                 gfp s = Proc.read_Cp(r[2]);
-                 long lv = gfpToLong(Proc.temp.aa, v);
-                 long lp = gfpToLong(Proc.temp.aa2, p);
-                 double res = (double)lv * pow(2.0,lp);
-                 if(!s.is_zero())
-                    res *= -1;
-                 cout << res <<flush;
-            }
+          {
+            gfp v = Proc.read_Cp(start[0]);
+            gfp p = Proc.read_Cp(start[1]);
+            gfp z = Proc.read_Cp(start[2]);
+            gfp s = Proc.read_Cp(start[3]);
+            to_bigint(Proc.temp.aa, v);
+            // MPIR can't handle more precision in exponent
+            to_signed_bigint(Proc.temp.aa2, p, 31);
+            long exp = Proc.temp.aa2.get_si();
+            mpf_class res = Proc.temp.aa;
+            if (exp > 0)
+              mpf_mul_2exp(res.get_mpf_t(), res.get_mpf_t(), exp);
+            else
+              mpf_div_2exp(res.get_mpf_t(), res.get_mpf_t(), -exp);
+            if (z.is_one())
+              res = 0;
+            if (!s.is_zero())
+              res *= -1;
+            if (not z.is_bit() or not s.is_bit())
+              throw Processor_Error("invalid floating point number");
+            cout << res << flush;
+          }
       break;
       case PRINTSTR:
         if (Proc.P.my_num() == 0)

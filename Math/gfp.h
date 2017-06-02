@@ -94,6 +94,7 @@ class gfp
 
   bool is_zero() const            { return isZero(a,ZpD); }
   bool is_one()  const            { return isOne(a,ZpD); }
+  bool is_bit()  const            { return is_zero() or is_one(); }
   bool equal(const gfp& y) const  { return areEqual(a,y.a,ZpD); }
   bool operator==(const gfp& y) const { return equal(y); }
   bool operator!=(const gfp& y) const { return !equal(y); }

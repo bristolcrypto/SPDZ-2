@@ -913,7 +913,7 @@ class print_reg_plain(base.IOInstruction):
 class print_float_plain(base.IOInstruction):
     __slots__ = []
     code = base.opcodes['PRINTFLOATPLAIN']
-    arg_format = ['c', 'c', 'c']
+    arg_format = ['c', 'c', 'c', 'c']
 
 
 class print_char(base.IOInstruction):

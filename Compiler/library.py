@@ -108,13 +108,7 @@ def print_str(s, *args):
             elif isinstance(val, sfix) or isinstance(val, sfloat):
                 raise CompilerError('Cannot print secret value:', args[i])
             elif isinstance(val, cfloat):
-                # Since we have only three registers, we separate the 0 case with the others
-                @if_e (val.z == 1)
-                def _():
-                    cint(0).print_reg_plain()
-                @else_
-                def _():
-                    val.print_float_plain()
+                val.print_float_plain()
             elif isinstance(val, list):
                 print_str('[' + ', '.join('%s' for i in range(len(val))) + ']', *val)
             else:
