@@ -1775,6 +1775,10 @@ class sfloat(_number):
     kappa = 40
     round_nearest = False
     error = 0
+    reg_type = 's'
+
+    def conv(self):
+        return self
 
     @vectorized_classmethod
     def load_mem(cls, address):
@@ -1782,6 +1786,7 @@ class sfloat(_number):
         for i in range(4):
             res.append(sint.load_mem(address + i * get_global_vector_size()))
         return sfloat(*res)
+
 
     @classmethod
     def set_error(cls, error):
@@ -2054,53 +2059,95 @@ _types = {
 
 
 class Array(object):
+
+
     def __init__(self, length, value_type, address=None):
+        """
+        Initializes an Array
+        :param length: the length of the array
+        :param value_type: the type of the array
+        :param address: The address on the tape to store the array
+        """
         if value_type in _types:
             value_type = _types[value_type]
+        if value_type == sfloat:
+            self.internalLength = length * 4
+        else:
+            self.internalLength = length
         self.address = address
         if address is None:
-            self.address = program.malloc(length, value_type.reg_type)
-        self.length = length
+            self.address = program.malloc(self.internalLength, value_type.reg_type)
         self.value_type = value_type
+        self.length = length
+
 
     def delete(self):
         if program:
             program.free(self.address, self.value_type.reg_type)
 
-    def get_address(self, index):
-        if isinstance(index, int) and self.length is not None:
-            index += self.length * (index < 0)
+    def __treat_negative_index(self, index):
+        # Corrects a negative index
+        index += self.length * (index < 0)
+        return index
+
+    def __get_address(self, index):
+        # returns the internal address of the index
+        if isinstance(index, int) and self.internalLength is not None:
+            index = self.__treat_negative_index(index)
             if index >= self.length or index < 0:
-                raise IndexError('index %s, length %s' % \
-                                     (str(index), str(self.length)))
+                raise IndexError('index %s, length %s' % (str(index), str(self.length)))
+
+        # Correct the index for sfloat/sfloatE
+        if self.value_type == sfloat:
+            index *= 4
         return self.address + index
 
-    def get_slice(self, index):
-        if index.stop is None and self.length is None:
+    def __get_slice(self, index):
+        # Returns a meaningful slice
+        if index.stop is None and self.internalLength is None:
             raise CompilerError('Cannot slice array of unknown length')
-        return index.start or 0, index.stop or self.length, index.step or 1
+        return self.__treat_negative_index(index.start) or 0, self.__treat_negative_index(
+            index.stop) or self.length, index.step or 1
 
     def __getitem__(self, index):
+        """
+        Used to access an element of the array, e.g. x = A[2]
+        :param index: the index to access. Can be a slice, e.g., A[2:4]
+        :return: the element or the subArray
+        """
         if isinstance(index, slice):
-            start, stop, step = self.get_slice(index)
+            start, stop, step = self.__get_slice(index)
             res_length = (stop - start - 1) / step + 1
             res = Array(res_length, self.value_type)
+
             @library.for_range(res_length)
             def f(i):
-                res[i] = self[start+i*step]
+                res[i] = self[start + i * step]
+
             return res
-        return self.value_type.load_mem(self.get_address(index))
+        else:
+            return self.value_type.load_mem(self.__get_address(index))
 
     def __setitem__(self, index, value):
+        """
+        Used to set an element or a subarray of the array, e.g. A[2] = x
+        :param index: the index to modify. Can be a slice, e.g., A[2:4]
+        """
         if isinstance(index, slice):
-            start, stop, step = self.get_slice(index)
+            start, stop, step = self.__get_slice(index)
             source_index = MemValue(0)
+
             @library.for_range(start, stop, step)
             def f(i):
                 self[i] = value[source_index]
                 source_index.iadd(1)
+
             return
-        self.value_type.conv(value).store_in_mem(self.get_address(index))
+        else:
+            if type(value) != self.value_type:
+                print '\033[93mWarning: setting item in array of different type: ', type(
+                    value), 'instead of', self.value_type, '\033[0m'
+            self.value_type.conv(value).store_in_mem(self.__get_address(index))
 
     def __len__(self):
         return self.length
@@ -2113,23 +2160,32 @@ class Array(object):
         if isinstance(other, Array):
             def loop(i):
                 self[i] = other[i]
+
             library.range_loop(loop, len(self))
         elif isinstance(other, Tape.Register):
-            if len(other) == self.length:
+            if len(other) == len(self):
                 self[0] = other
             else:
                 raise CompilerError('Length mismatch between array and vector')
         else:
-            for i,j in enumerate(other):
+            for i, j in enumerate(other):
                 self[i] = j
         return self
 
     def assign_all(self, value):
-        mem_value = MemValue(value)
-        n_loops = 8 if len(self) > 2**20 else 1
+        """
+        Sets all the elements of the array to the given value
+        :param value: the value to set to
+        """
+        tp = type(value)
+        mem_value = Array(1, tp)
+        mem_value[0] = value
+        n_loops = 8 if len(self) > 2 ** 20 else 1
+
         @library.for_range_multithread(n_loops, 1024, len(self))
         def f(i):
-            self[i] = mem_value
+            self[i] = mem_value[0]
+
         return self
 
 
@@ -2143,8 +2199,10 @@ class Matrix(object):
         self.address = Array(rows * columns, value_type).address
 
     def __getitem__(self, index):
+        if self.value_type == sfloat:
+            index = index * 4
         return Array(self.columns, self.value_type, \
-                         self.address + index * self.columns)
+                     self.address + index * self.columns)
 
     def __len__(self):
         return self.rows
