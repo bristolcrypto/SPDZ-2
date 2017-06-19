@@ -90,7 +90,7 @@ def set_instruction_type(operation):
 
 def read_mem_value(operation):
     def read_mem_operation(self, other, *args, **kwargs):
-        if isinstance(other, MemValue):
+        if isinstance(other, _mem):
             other = other.read()
         return operation(self, other, *args, **kwargs)
     return read_mem_operation
@@ -154,6 +154,16 @@ class _gf2n(object):
 
 
 class _register(Tape.Register, _number):
+    MemValue = staticmethod(lambda value: MemValue(value))
+
+    @classmethod
+    def Array(cls, size, *args, **kwargs):
+        return Array(size, cls, *args, **kwargs)
+
+    @classmethod
+    def Matrix(cls, rows, columns, *args, **kwargs):
+        return Matrix(rows, columns, cls, *args, **kwargs)
+
     @vectorized_classmethod
     def conv(cls, val):
         if isinstance(val, MemValue):
@@ -1814,6 +1824,7 @@ class sfloat(_number):
         return v, p, z, s
 
     @vectorize_init
+    @read_mem_value
     def __init__(self, v, p=None, z=None, s=None, size=None):
         self.size = get_global_vector_size()
         if p is None:
@@ -1858,6 +1869,12 @@ class sfloat(_number):
             ldsi(self.s, s)
         else:
             self.s = s
+
+    def __iter__(self):
+        yield self.v
+        yield self.p
+        yield self.z
+        yield self.s
 
     def store_in_mem(self, address):
         for i,x in enumerate((self.v, self.p, self.z, self.s)):
@@ -2084,7 +2101,7 @@ class Array(object):
         if isinstance(index, slice):
             start, stop, step = self.get_slice(index)
             res_length = (stop - start - 1) / step + 1
-            res = Array(res_length, self.value_type)
+            res = self.value_type.Array(res_length)
             @library.for_range(res_length)
             def f(i):
                 res[i] = self[start+i*step]
@@ -2125,7 +2142,7 @@ class Array(object):
         return self
 
     def assign_all(self, value):
-        mem_value = MemValue(value)
+        mem_value = self.value_type.MemValue(value)
         n_loops = 8 if len(self) > 2**20 else 1
         @library.for_range_multithread(n_loops, 1024, len(self))
         def f(i):
@@ -2134,13 +2151,13 @@ class Array(object):
 
 
 class Matrix(object):
-    def __init__(self, rows, columns, value_type):
+    def __init__(self, rows, columns, value_type, address=None):
         self.rows = rows
         self.columns = columns
         if value_type in _types:
             value_type = _types[value_type]
         self.value_type = value_type
-        self.address = Array(rows * columns, value_type).address
+        self.address = Array(rows * columns, value_type, address).address
 
     def __getitem__(self, index):
         return Array(self.columns, self.value_type, \
@@ -2198,6 +2215,31 @@ class VectorArray(object):
         if value.size != self.vector_size:
             raise CompilerError('vector size mismatch')
         value.store_in_mem(self.array.address + index * self.vector_size)
+
+class sfloatArray(Array):
+    def __init__(self, length, address=None):
+        self.matrix = Matrix(length, 4, sint, address)
+        self.length = length
+        self.value_type = sfloat
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return Array.__getitem__(self, index)
+        return sfloat(*self.matrix[index])
+
+    def __setitem__(self, index, value):
+        if isinstance(index, slice):
+            return Array.__setitem__(self, index, value)
+        self.matrix[index].assign(iter(sfloat(value)))
+
+class sfloatMatrix(Matrix):
+    def __init__(self, rows, columns):
+        self.rows = rows
+        self.columns = columns
+        self.multi_array = MultiArray([rows, columns, 4], sint)
+
+    def __getitem__(self, index):
+        return sfloatArray(self.columns, self.multi_array[index].address)
 
 class _mem(_number):
     __add__ = lambda self,other: self.read() + other
@@ -2410,5 +2452,9 @@ def getNamedTupleType(*names):
         def reveal(self):
             return self.__type__(x.reveal() for x in self)
     return NamedTuple
+
+sfloat.Array = sfloatArray
+sfloat.Matrix = sfloatMatrix
+sfloat.MemValue = MemFloat
 
 import library
