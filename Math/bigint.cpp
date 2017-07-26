@@ -9,6 +9,8 @@ bigint sqrRootMod(const bigint& a,const bigint& p)
 {
   bigint ans;
   if (a==0) { ans=0; return ans; }
+  if (mpz_legendre(a.get_mpz_t(), p.get_mpz_t()) != 1)
+      throw runtime_error("cannot compute square root of non-square");
   if (mpz_tstbit(p.get_mpz_t(),1)==1)
     { // First do case with p=3 mod 4
       bigint exp=(p+1)/4;
