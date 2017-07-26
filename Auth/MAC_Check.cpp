@@ -245,9 +245,10 @@ void MAC_Check<T>::CheckIfNeeded(const Player& P)
 template <class T>
 void MAC_Check<T>::AddToCheck(const T& mac, const T& value, const Player& P)
 {
-  CheckIfNeeded(P);
   macs.push_back(mac);
   vals.push_back(value);
+  popen_cnt++;
+  CheckIfNeeded(P);
 }
 
 
