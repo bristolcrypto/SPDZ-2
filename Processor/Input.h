@@ -23,7 +23,7 @@ class Input
 {
     Processor& proc;
     MAC_Check<T>& MC;
-    vector< Share<T> > shares;
+    vector< vector< Share<T> > > shares;
     Buffer<T,T> buffer;
     Timer timer;
 

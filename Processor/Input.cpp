@@ -10,7 +10,7 @@
 
 template<class T>
 Input<T>::Input(Processor& proc, MAC_Check<T>& mc) :
-        proc(proc), MC(mc), values_input(0)
+        proc(proc), MC(mc), shares(proc.P.num_players()), values_input(0)
 {
     buffer.setup(&proc.private_input, -1, "private input");
 }
@@ -34,15 +34,17 @@ void Input<T>::adjust_mac(Share<T>& share, T& value)
 template<class T>
 void Input<T>::start(int player, int n_inputs)
 {
+    shares[player].resize(n_inputs);
+    vector<T> rr(n_inputs);
+
     if (player == proc.P.my_num())
     {
         octetStream o;
-        shares.resize(n_inputs);
 
         for (int i = 0; i < n_inputs; i++)
         {
             T rr, t;
-            Share<T>& share = shares[i];
+            Share<T>& share = shares[player][i];
             proc.DataF.get_input(share, rr, player);
             T xi;
             buffer.input(t);
@@ -56,19 +58,21 @@ void Input<T>::start(int player, int n_inputs)
         proc.P.send_all(o, true);
         values_input += n_inputs;
     }
+    else
+    {
+        T t;
+        for (int i = 0; i < n_inputs; i++)
+            proc.DataF.get_input(shares[player][i], t, player);
+    }
 }
 
 template<class T>
 void Input<T>::stop(int player, vector<int> targets)
 {
-    T tmp;
+    for (unsigned int i = 0; i < targets.size(); i++)
+        proc.get_S_ref<T>(targets[i]) = shares[player][i];
 
-    if (player == proc.P.my_num())
-    {
-        for (unsigned int i = 0; i < targets.size(); i++)
-            proc.get_S_ref<T>(targets[i]) = shares[i];
-    }
-    else
+    if (proc.P.my_num() != player)
     {
         T t;
         octetStream o;
@@ -78,7 +82,6 @@ void Input<T>::stop(int player, vector<int> targets)
         for (unsigned int i = 0; i < targets.size(); i++)
         {
             Share<T>& share = proc.get_S_ref<T>(targets[i]);
-            proc.DataF.get_input(share, t, player);
             t.unpack(o);
             adjust_mac(share, t);
         }
