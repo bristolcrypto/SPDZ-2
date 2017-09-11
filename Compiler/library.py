@@ -83,12 +83,12 @@ def print_str(s, *args):
                 # number is encoded as [left].[right]
                 left = val.v
                 sign = -1 * (val.v < 0) + 1 * (val.v >= 0)
-                positive_left = sign * left
+                positive_left = cint(sign) * left
                 right = positive_left % 2**val.f
                 @if_(sign == -1)
                 def block():
                     print_str('-')
-                cint((positive_left - right + 1) / 2**val.f).print_reg_plain()
+                cint((positive_left - right + 1) >> val.f).print_reg_plain()
                 x = 0
                 max_dec_base = 6 # max 32-bit precision
                 last_nonzero = 0
