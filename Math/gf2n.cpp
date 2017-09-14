@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Math/gf2n.h"
@@ -322,7 +322,7 @@ void gf2n_short::randomize(PRNG& G)
 void gf2n_short::output(ostream& s,bool human) const
 {
   if (human)
-    { s << hex << a << dec << " "; }
+    { s << hex << showbase << a << dec << " "; }
   else
     { s.write((char*) &a,sizeof(word)); }
 }

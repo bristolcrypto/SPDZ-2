@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #ifndef _Processor
@@ -19,19 +19,43 @@
 #include "Input.h"
 #include "PrivateOutput.h"
 #include "Machine.h"
+#include "ExternalClients.h"
+#include "Binary_File_IO.h"
+#include "Instruction.h"
 
 #include <stack>
 
-class Processor
+class ProcessorBase
+{
+  // Stack
+  stack<long> stacki;
+
+protected:
+  // Optional argument to tape
+  int arg;
+
+public:
+  void pushi(long x) { stacki.push(x); }
+  void popi(long& x) { x = stacki.top(); stacki.pop(); }
+
+  int get_arg() const
+    {
+      return arg;
+    }
+
+  void set_arg(int new_arg)
+    {
+      arg=new_arg;
+    }
+};
+
+class Processor : public ProcessorBase
 {
   vector<gf2n>  C2;
   vector<gfp>   Cp;
   vector<Share<gf2n> > S2;
   vector<Share<gfp> >  Sp;
   vector<long> Ci;
-  
-  // Stack
-  stack<long> stacki;
 
   // This is the vector of partially opened values and shares we need to store
   // as the Open commands are split in two
@@ -43,13 +67,8 @@ class Processor
   int reg_max2,reg_maxp,reg_maxi;
   int thread_num;
 
-  // Optional argument to tape
-  int arg;
-
-  // For reading/reading data from a socket (i.e. external party to SPDZ)
+  // Data structure used for reading/writing data to/from a socket (i.e. an external party to SPDZ)
   octetStream socket_stream;
-  int socket_fd, final_socket_fd;
-  bool socket_is_open;
 
   #ifdef DEBUG
     vector<int> rw2;
@@ -91,33 +110,23 @@ class Processor
 
   int sent, rounds;
 
+  ExternalClients external_clients;
+  Binary_File_IO binary_file_io;
+  
   static const int reg_bytes = 4;
   
-  void reset(int num_regs2,int num_regsp,int num_regi,int arg); // Reset the state of the processor
+  void reset(const Program& program,int arg); // Reset the state of the processor
   string get_filename(const char* basename, bool use_number);
 
   Processor(int thread_num,Data_Files& DataF,Player& P,
           MAC_Check<gf2n>& MC2,MAC_Check<gfp>& MCp,Machine& machine,
-          int num_regs2 = 256,int num_regsp = 256,int num_regi = 256);
+          const Program& program);
   ~Processor();
 
   int get_thread_num()
     {
       return thread_num;
     }
-
-  int get_arg() const
-    {
-      return arg;
-    }
-
-  void set_arg(int new_arg)
-    {
-      arg=new_arg;
-    }
-
-  void pushi(long x) { stacki.push(x); }
-  void popi(long& x) { x = stacki.top(); stacki.pop(); }
 
   #ifdef DEBUG  
     const gf2n& read_C2(int i) const
@@ -226,16 +235,29 @@ class Processor
   template<class T> Share<T>& get_S_ref(int i);
   template<class T> T& get_C_ref(int i);
 
-  // Access to sockets for reading clear/shared data
-  void open_socket(int portnum_base);
-  void close_socket();
-  void read_socket(int& x);
-  void write_socket(int x);
-  template <class T>
-  void read_socket(T& x);
-  template <class T>
-  void write_socket(const T& x);
+  // Access to external client sockets for reading clear/shared data
+  void read_socket_ints(int client_id, const vector<int>& registers);
+  // Setup client public key
+  void read_client_public_key(int client_id, const vector<int>& registers);
+  void init_secure_socket(int client_id, const vector<int>& registers);
+  void init_secure_socket_internal(int client_id, const vector<int>& registers);
+  void resp_secure_socket(int client_id, const vector<int>& registers);
+  void resp_secure_socket_internal(int client_id, const vector<int>& registers);
+  
+  void write_socket(const RegType reg_type, const SecrecyType secrecy_type, const bool send_macs,
+                             int socket_id, int message_type, const vector<int>& registers);
 
+  template <class T>
+  void read_socket_vector(int client_id, const vector<int>& registers);
+  template <class T>
+  void read_socket_private(int client_id, const vector<int>& registers, bool send_macs);
+
+  // Read and write secret numeric data to file (name hardcoded at present)
+  template <class T>
+  void read_shares_from_file(int start_file_pos, int end_file_pos_register, const vector<int>& data_registers);
+  template <class T>
+  void write_shares_to_file(const vector<int>& data_registers);
+  
   // Access to PO (via calls to POpen start/stop)
   template <class T>
   void POpen_Start(const vector<int>& reg,const Player& P,MAC_Check<T>& MC,int size);
@@ -245,6 +267,10 @@ class Processor
 
   // Print the processor state
   friend ostream& operator<<(ostream& s,const Processor& P);
+
+  private:
+    void maybe_decrypt_sequence(int client_id);
+    void maybe_encrypt_sequence(int client_id);
 };
 
 template<> inline Share<gf2n>& Processor::get_S_ref(int i) { return get_S2_ref(i); }

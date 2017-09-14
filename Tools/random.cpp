@@ -1,8 +1,9 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Tools/random.h"
 #include <stdio.h>
+#include <sodium.h>
 
 #include <iostream>
 using namespace std;
@@ -18,9 +19,7 @@ PRNG::PRNG() : cnt(0)
 
 void PRNG::ReSeed()
 {
-  FILE* rD=fopen("/dev/urandom", "r");
-  fread(seed,sizeof(octet),SEED_SIZE,rD);
-  fclose(rD);
+  randombytes_buf(seed, SEED_SIZE);
   InitSeed();
 }
 

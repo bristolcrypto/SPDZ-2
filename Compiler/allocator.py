@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 import itertools, time
 from collections import defaultdict, deque
@@ -11,20 +11,20 @@ import Compiler.graph
 import Compiler.program
 import heapq, itertools
 import operator
+import sys
 
 
 class StraightlineAllocator:
     """Allocate variables in a straightline program using n registers.
     It is based on the precondition that every register is only defined once."""
     def __init__(self, n):
-        self.free = defaultdict(set)
         self.alloc = {}
         self.usage = Compiler.program.RegType.create_dict(lambda: 0)
         self.defined = {}
         self.dealloc = set()
         self.n = n
 
-    def alloc_reg(self, reg, persistent_allocation):
+    def alloc_reg(self, reg, free):
         base = reg.vectorbase
         if base in self.alloc:
             # already allocated
@@ -32,8 +32,8 @@ class StraightlineAllocator:
 
         reg_type = reg.reg_type
         size = base.size
-        if not persistent_allocation and self.free[reg_type, size]:
-            res = self.free[reg_type, size].pop()
+        if free[reg_type, size]:
+            res = free[reg_type, size].pop()
         else:
             if self.usage[reg_type] < self.n:
                 res = self.usage[reg_type]
@@ -48,7 +48,7 @@ class StraightlineAllocator:
         else:
             base.i = self.alloc[base]
 
-    def dealloc_reg(self, reg, inst):
+    def dealloc_reg(self, reg, inst, free):
         self.dealloc.add(reg)
         base = reg.vectorbase
 
@@ -57,14 +57,14 @@ class StraightlineAllocator:
                 if i not in self.dealloc:
                     # not all vector elements ready for deallocation
                     return
-        self.free[reg.reg_type, base.size].add(self.alloc[base])
+        free[reg.reg_type, base.size].add(self.alloc[base])
         if inst.is_vec() and base.vector:
             for i in base.vector:
                 self.defined[i] = inst
         else:
             self.defined[reg] = inst
 
-    def process(self, program, persistent_allocation=False):
+    def process(self, program, alloc_pool):
         for k,i in enumerate(reversed(program)):
             unused_regs = []
             for j in i.get_def():
@@ -75,7 +75,7 @@ class StraightlineAllocator:
                                                 (j,i,format_trace(i.caller)))
                 else:
                     # unused register
-                    self.alloc_reg(j, persistent_allocation)
+                    self.alloc_reg(j, alloc_pool)
                     unused_regs.append(j)
             if unused_regs and len(unused_regs) == len(i.get_def()):
                 # only report if all assigned registers are unused
@@ -83,9 +83,9 @@ class StraightlineAllocator:
                     (unused_regs,i,format_trace(i.caller))
 
             for j in i.get_used():
-                self.alloc_reg(j, persistent_allocation)
+                self.alloc_reg(j, alloc_pool)
             for j in i.get_def():
-                self.dealloc_reg(j, i)
+                self.dealloc_reg(j, i, alloc_pool)
 
             if k % 1000000 == 0 and k > 0:
                 print "Allocated registers for %d instructions at" % k, time.asctime()
@@ -98,7 +98,7 @@ class StraightlineAllocator:
         return self.usage
 
 
-def determine_scope(block):
+def determine_scope(block, options):
     last_def = defaultdict(lambda: -1)
     used_from_scope = set()
 
@@ -120,12 +120,16 @@ def determine_scope(block):
                 print '\tline %d: %s' % (n, instr)
                 print '\tinstruction trace: %s' % format_trace(instr.caller, '\t\t')
                 print '\tregister trace: %s' % format_trace(reg.caller, '\t\t')
+                if options.stop:
+                    sys.exit(1)
 
     def write(reg, n):
         if last_def[reg] != -1:
             print 'Warning: double write at register', reg
             print '\tline %d: %s' % (n, instr)
             print '\ttrace: %s' % format_trace(instr.caller, '\t\t')
+            if options.stop:
+                sys.exit(1)
         last_def[reg] = n
 
     for n,instr in enumerate(block.instructions):

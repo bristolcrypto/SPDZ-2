@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 """
 Functions for secure comparison of GF(p) types.
@@ -68,10 +68,10 @@ def divide_by_two(res, x):
     """ Faster clear division by two using a cached value of 2^-1 mod p """
     from program import Program
     import types
-    tape = Program.prog.curr_block
-    if tape not in inverse_of_two:
-        inverse_of_two[tape] = types.cint(1) / 2
-    mulc(res, x, inverse_of_two[tape])
+    block = Program.prog.curr_block
+    if len(inverse_of_two) == 0 or block not in inverse_of_two:
+        inverse_of_two[block] = types.cint(1) / 2
+    mulc(res, x, inverse_of_two[block])
 
 def LTZ(s, a, k, kappa):
     """

@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _octetStream
 #define _octetStream
@@ -23,6 +23,9 @@
 #include <vector>
 #include <stdio.h>
 #include <iostream>
+
+#include <sodium.h>
+ 
 using namespace std;
 
 
@@ -50,11 +53,15 @@ class octetStream
   int get_length() const  { return len; }
   octet* get_data() const { return data; }
 
+  bool done() const 	  { return ptr == len; }
+  bool empty() const 	  { return len == 0; }
+  int left() const 		  { return len - ptr; }
+
   octetStream hash()   const;
   // output must have length at least HASH_SIZE
   void hash(octetStream& output)   const;
   // The following produces a check sum for debugging purposes
-  bigint check_sum()       const;
+  bigint check_sum(int req_bytes=crypto_hash_BYTES)       const;
 
   void concat(const octetStream& os);
 
@@ -83,12 +90,18 @@ class octetStream
   void get_bytes(octet* ans, int& l);      //Assumes enough space in ans
 
   void store(unsigned int a);
-  void store(int a)   { store((unsigned int) a); }
+  void store(int a);
   void get(unsigned int& a);
-  void get(int& a) { get((unsigned int&) a); }
+  void get(int& a);
 
   void store(const bigint& x);
   void get(bigint& ans);
+
+  // works for all statically allocated types
+  template <class T>
+  void serialize(const T& x) { append((octet*)&x, sizeof(x)); }
+  template <class T>
+  void unserialize(T& x) { consume((octet*)&x, sizeof(x)); }
 
   void consume(octetStream& s,int l)
     { s.resize(l);
@@ -98,6 +111,20 @@ class octetStream
 
   void Send(int socket_num) const;
   void Receive(int socket_num);
+  void ReceiveExpected(int socket_num, int expected);
+
+  // In-place authenticated encryption using sodium; key of length crypto_generichash_BYTES
+  // ciphertext = Enc(message) | MAC | counter
+  //
+  // This is much like 'encrypt' but uses a deterministic counter for the nonce,
+  // allowing enforcement of message order.
+  void encrypt_sequence(const octet* key, uint64_t counter);
+  void decrypt_sequence(const octet* key, uint64_t counter);
+
+  // In-place authenticated encryption using sodium; key of length crypto_secretbox_KEYBYTES
+  // ciphertext = Enc(message) | MAC | nonce
+  void encrypt(const octet* key);
+  void decrypt(const octet* key);
 
   friend ostream& operator<<(ostream& s,const octetStream& o);
   friend class PRNG;
@@ -150,6 +177,25 @@ inline void octetStream::Receive(int socket_num)
   receive(socket_num,blen,4);
 
   int nlen=decode_length(blen);
+  len=0;
+  resize(nlen);
+  len=nlen;
+
+  receive(socket_num,data,len);
+}
+
+inline void octetStream::ReceiveExpected(int socket_num, int expected)
+{
+  octet blen[4];
+  receive(socket_num,blen,4);
+
+  int nlen=decode_length(blen);
+  if (nlen != expected) {
+      cerr << "octetStream::ReceiveExpected: got " << nlen <<
+              " length, expected " << expected << endl;
+      throw bad_value();
+  }
+
   len=0;
   resize(nlen);
   len=nlen;

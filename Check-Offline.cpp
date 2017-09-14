@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 /*
  * Check-Offline.cpp
@@ -62,21 +62,27 @@ void check_bits(const T& key,int N,vector<Data_Files*>& dataF,DataFieldType fiel
   vector<Share<T> > Sa(N),Sb(N),Sc(N);
   int n = 0;
 
-  while (!dataF[0]->eof<T>(DATA_BIT))
-    {
-      for (int i = 0; i < N; i++)
-        dataF[i]->get_one(field_type, DATA_BIT, Sa[i]);
-      check_share(Sa, a, mac, N, key);
-
-      if (!(a.is_zero() || a.is_one()))
+  try {
+      while (!dataF[0]->eof<T>(DATA_BIT))
       {
-        cout << n << ": " << a << " neither 0 or 1" << endl;
-        throw bad_value();
-      }
-      n++;
-    }
+          for (int i = 0; i < N; i++)
+              dataF[i]->get_one(field_type, DATA_BIT, Sa[i]);
+          check_share(Sa, a, mac, N, key);
 
-  cout << n << " bits of type " << T::type_string() << endl;
+          if (!(a.is_zero() || a.is_one()))
+          {
+              cout << n << ": " << a << " neither 0 or 1" << endl;
+              throw bad_value();
+          }
+          n++;
+      }
+
+      cout << n << " bits of type " << T::type_string() << endl;
+  }
+  catch (exception& e)
+  {
+      cout << "Error with bits of type " << T::type_string() << endl;
+  }
 }
 
 template<class T>
@@ -85,20 +91,26 @@ void check_inputs(const T& key,int N,vector<Data_Files*>& dataF)
   T a, mac, x;
   vector< Share<T> > Sa(N);
 
-  for (int player = 0; player < N; player++)
-    {
-      int n = 0;
-      while (!dataF[0]->input_eof<T>(player))
-        {
-          for (int i = 0; i < N; i++)
-            dataF[i]->get_input(Sa[i], x, player);
-          check_share(Sa, a, mac, N, key);
-          if (!a.equal(x))
-            throw bad_value();
-          n++;
-        }
-      cout << n << " input masks for player " << player << " of type " << T::type_string() << endl;
-    }
+  try {
+      for (int player = 0; player < N; player++)
+      {
+          int n = 0;
+          while (!dataF[0]->input_eof<T>(player))
+          {
+              for (int i = 0; i < N; i++)
+                  dataF[i]->get_input(Sa[i], x, player);
+              check_share(Sa, a, mac, N, key);
+              if (!a.equal(x))
+                  throw bad_value();
+              n++;
+          }
+          cout << n << " input masks for player " << player << " of type " << T::type_string() << endl;
+      }
+  }
+  catch (exception& e)
+  {
+      cout << "Error with inputs of type " << T::type_string() << endl;
+  }
 }
 
 int main(int argc, const char** argv)

@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "sockets.h"
@@ -28,8 +28,6 @@ void error(const char *str1,const char *str2)
   throw bad_value();
 }
 
-
-
 void set_up_server_socket(sockaddr_in& dest,int& consocket,int& main_socket,int Portnum)
 {
 
@@ -57,7 +55,7 @@ void set_up_server_socket(sockaddr_in& dest,int& consocket,int& main_socket,int 
   memset(my_name,0,512*sizeof(octet));
   gethostname((char*)my_name,512);
 
-  /* bind serv information to mysocket 
+  /* bind serv information to mysocket
    *   - Just assume it will eventually wake up
    */
   fl=1;
@@ -82,21 +80,18 @@ void set_up_server_socket(sockaddr_in& dest,int& consocket,int& main_socket,int 
 
 }
 
-
 void close_server_socket(int consocket,int main_socket)
 {
   if (close(consocket)) { error("close(socket)"); }
   if (close(main_socket)) { error("close(main_socket"); };
 }
 
-
-
 void set_up_client_socket(int& mysocket,const char* hostname,int Portnum)
 {
    mysocket = socket(AF_INET, SOCK_STREAM, 0);
    if (mysocket<0) { error("set_up_socket:socket");  }
-   
-   /* disable Nagle's algorithm */
+
+  /* disable Nagle's algorithm */
   int one=1;
   int fl= setsockopt(mysocket, IPPROTO_TCP, TCP_NODELAY, (char*)&one, sizeof(int));
   if (fl<0) { error("set_up_socket:setsockopt");  }
@@ -106,17 +101,8 @@ void set_up_client_socket(int& mysocket,const char* hostname,int Portnum)
 
    struct sockaddr_in dest;
    dest.sin_family = AF_INET;
-   dest.sin_port = htons(Portnum);      // set destination port number 
+   dest.sin_port = htons(Portnum);      // set destination port number
 
-   /*
-   struct hostent *server;
-   server=gethostbyname(hostname);
-   if (server== NULL)
-     {  error("set_up_socket:gethostbyname");  }  
-   bcopy((char *)server->h_addr, 
-         (char *)&dest.sin_addr.s_addr,
-         server->h_length);          // set destination IP number 
-   */
    struct addrinfo hints, *ai=NULL,*rp;
    memset (&hints, 0, sizeof(hints));
    hints.ai_family = AF_INET;
@@ -140,13 +126,13 @@ void set_up_client_socket(int& mysocket,const char* hostname,int Portnum)
          }
      }
    if (erp!=0)
-     { error("set_up_socket:getaddrinfo");  }  
+     { error("set_up_socket:getaddrinfo");  }
 
    for (rp=ai; rp!=NULL; rp=rp->ai_next)
       { const struct in_addr *addr4 = &((const struct sockaddr_in*)ai->ai_addr)->sin_addr;
-   
+
         if (ai->ai_family == AF_INET)
-	   { memcpy((char *)&dest.sin_addr.s_addr,addr4,sizeof(in_addr));
+           { memcpy((char *)&dest.sin_addr.s_addr,addr4,sizeof(in_addr));
              continue;
            }
       }
@@ -162,8 +148,6 @@ void set_up_client_socket(int& mysocket,const char* hostname,int Portnum)
    if (fl<0) { error("set_up_socket:connect:",hostname);  }
 }
 
-
-
 void close_client_socket(int socket)
 {
   if (close(socket))
@@ -173,8 +157,6 @@ void close_client_socket(int socket)
       error(tmp);
     }
 }
-
-
 
 unsigned long long sent_amount = 0, sent_counter = 0;
 
@@ -195,7 +177,7 @@ void receive(int socket,int& a)
   while (i==0)
     { i=recv(socket,msg,1,0);
       if (i<0) { error("Receiving error - 2"); }
-    } 
+    }
   a=msg[0];
 }
 

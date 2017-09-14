@@ -1,9 +1,9 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #include "Tools.h"
 #include "Math/gf2nlong.h"
 
-void random_seed_commit(octet* seed, const TwoPartyPlayer& player, int len)
+void random_seed_commit(octet* seed, TwoPartyPlayer& player, int len)
 {
 	PRNG G;
 	G.ReSeed();

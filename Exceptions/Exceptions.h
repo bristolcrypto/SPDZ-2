@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _Exceptions
 #define _Exceptions
@@ -121,9 +121,39 @@ class file_error:  public exception
         }
     };
 class end_of_file: public exception
-    { virtual const char* what() const throw()
-        { return "End of file reached"; }
+    { string filename, context, ans;
+      public:
+      end_of_file(string pfilename="no filename", string pcontext="") : 
+        filename(pfilename), context(pcontext)
+        {
+          ans="End of file when reading ";
+          ans+=filename;
+          ans+=" ";
+          ans+=context;
+        }
+      ~end_of_file()throw() { }
+      virtual const char* what() const throw()
+        {
+          return ans.c_str();
+        }
     };
+class file_missing:  public exception
+    { string filename, context, ans;
+      public:
+      file_missing(string pfilename="no filename", string pcontext="") : 
+        filename(pfilename), context(pcontext)
+        {
+          ans="File missing : ";
+          ans+=filename;
+          ans+=" ";
+          ans+=context;
+        }
+      ~file_missing()throw() { }
+      virtual const char* what() const throw()
+        {
+          return ans.c_str();
+        }
+    };    
 class Processor_Error: public exception
     { string msg;
       public:
@@ -136,6 +166,11 @@ class Processor_Error: public exception
         {
           return msg.c_str();
         }
+    };
+class Invalid_Instruction : public Processor_Error
+    {
+      public:
+      Invalid_Instruction(string m) : Processor_Error(m) {}
     };
 class max_mod_sz_too_small : public exception
     { int len;

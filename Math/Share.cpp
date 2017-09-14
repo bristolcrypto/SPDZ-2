@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Share.h"
@@ -96,6 +96,23 @@ T combine(const vector< Share<T> >& S)
   for (unsigned int i=1; i<S.size(); i++) 
     { ans.add(ans,S[i].a); }
   return ans;
+}
+
+
+
+
+template<class T>
+inline void Share<T>::pack(octetStream& os) const
+{
+  a.pack(os);
+  mac.pack(os);
+}
+
+template<class T>
+inline void Share<T>::unpack(octetStream& os)
+{
+  a.unpack(os);
+  mac.unpack(os);
 }
 
 

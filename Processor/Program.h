@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _Program
 #define _Program
@@ -20,7 +20,7 @@ class Program
   DataPositions offline_data_used;
 
   // Maximal register used
-  int max_reg2,max_regp,max_regi;
+  int max_reg[MAX_REG_TYPE];
 
   // Memory size used directly
   int max_mem[MAX_REG_TYPE][MAX_SECRECY_TYPE];
@@ -33,8 +33,8 @@ class Program
   public:
 
   Program(int nplayers) : offline_data_used(nplayers),
-      max_reg2(0), max_regp(0), max_regi(0), unknown_usage(false)
-    { p.resize(0); }
+      unknown_usage(false)
+    { compute_constants(); }
 
   // Read in a program
   void parse(istream& s);
@@ -44,18 +44,11 @@ class Program
 
   bool usage_unknown() const { return unknown_usage; }
 
-  int num_regs2() const         { return max_reg2; }
-  int num_regsp() const         { return max_regp; }
-  int num_regi() const          { return max_regi; }
+  int num_reg(RegType reg_type) const
+    { return max_reg[reg_type]; }
 
-  int direct_mem(RegType reg_type, SecrecyType sec_type)
-    { return max_mem[reg_type][sec_type]; }
-
-  int direct_mem2_s() const     { return max_mem[GF2N][SECRET]; }
-  int direct_memp_s() const     { return max_mem[MODP][SECRET]; }
-  int direct_mem2_c() const     { return max_mem[GF2N][CLEAR]; }
-  int direct_memp_c() const     { return max_mem[MODP][CLEAR]; }
-  int direct_memi_c() const     { return max_mem[INT][CLEAR]; }
+  const int* direct_mem(RegType reg_type) const
+    { return max_mem[reg_type]; }
 
   friend ostream& operator<<(ostream& s,const Program& P);
 

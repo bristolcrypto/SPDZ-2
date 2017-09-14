@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _Player
 #define _Player
@@ -23,6 +23,23 @@ using namespace std;
 #include "Networking/Receiver.h"
 #include "Networking/Sender.h"
 
+typedef vector<octet> public_signing_key;
+typedef vector<octet> secret_signing_key;
+typedef vector<octet> chachakey;
+typedef pair< chachakey, uint64_t > keyinfo;
+
+class CommsecKeysPackage {
+public:
+    vector<public_signing_key> player_public_keys;
+    secret_signing_key my_secret_key;
+    public_signing_key my_public_key;
+
+    CommsecKeysPackage(vector<public_signing_key> playerpubs,
+                       secret_signing_key mypriv,
+                       public_signing_key mypub);
+    ~CommsecKeysPackage();
+};
+
 /* Class to get the names off the server */
 class Names
 {
@@ -30,6 +47,8 @@ class Names
   int nplayers;
   int portnum_base;
   int player_no;
+
+  CommsecKeysPackage *keys;
 
   void setup_names(const char *servername);
 
@@ -39,7 +58,6 @@ class Names
 
   mutable ServerSocket* server;
 
-  // Usual setup names
   void init(int player,int pnb,const char* servername);
   Names(int player,int pnb,const char* servername)
     { init(player,pnb,servername); }
@@ -50,11 +68,10 @@ class Names
   void init(int player,int pnb,vector<string> Nms);
   Names(int player,int pnb,vector<string> Nms)
     { init(player,pnb,Nms); }
-  // Set up names from file -- reads the first nplayers names in the file
   void init(int player, int nplayers, int pnb, const string& hostsfile);
   Names(int player, int nplayers, int pnb, const string& hostsfile)
     { init(player, nplayers, pnb, hostsfile); }
-  
+  void set_keys( CommsecKeysPackage *keys );
 
   Names() : nplayers(-1), portnum_base(-1), player_no(-1), server(0) { ; }
   Names(const Names& other);
@@ -80,7 +97,6 @@ public:
   PlayerBase(const Names& Nms) : player_no(Nms.my_num()) {}
   int my_num() const { return player_no; }
 };
-
 
 class Player : public PlayerBase
 {
@@ -161,25 +177,31 @@ class TwoPartyPlayer : public PlayerBase
 {
 private:
   // setup sockets for comm. with only one other player
-  void setup_sockets(const char* hostname, ServerSocket& server, int pn, int id);
+  void setup_sockets(int other_player, const Names &nms, int portNum, int id);
 
   int socket;
   bool is_server;
   int other_player;
+  bool p2pcommsec;
+
+  secret_signing_key my_secret_key;
+  map<int,public_signing_key> player_public_keys;
+  keyinfo player_send_key;
+  keyinfo player_recv_key;
 
 public:
   TwoPartyPlayer(const Names& Nms, int other_player, int pn_offset=0);
   ~TwoPartyPlayer();
 
-  void send(octetStream& o) const;
-  void receive(octetStream& o) const;
+  void send(octetStream& o);
+  void receive(octetStream& o);
 
   int other_player_num() const;
 
   /* Send and receive to/from the other player
    *  - o[0] contains my data, received data put in o[1]
    */
-  void send_receive_player(vector<octetStream>& o) const;
+  void send_receive_player(vector<octetStream>& o);
 };
 
 #endif

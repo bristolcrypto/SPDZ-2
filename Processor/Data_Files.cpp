@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Processor/Data_Files.h"
@@ -56,7 +56,7 @@ void DataPositions::print_cost() const
           file >> cost_per_item;
           if (cost_per_item < 0)
             break;
-          int items_used = files[i][j];
+          long long items_used = files[i][j];
           double cost = items_used * cost_per_item;
           total_cost += cost;
           cerr.fill(' ');

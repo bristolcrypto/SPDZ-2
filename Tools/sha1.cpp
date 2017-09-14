@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 /*
  * SHA1 routine optimized to do word accesses rather than byte accesses,

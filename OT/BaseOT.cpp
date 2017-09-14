@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #include "OT/BaseOT.h"
 #include "Tools/random.h"
@@ -34,7 +34,7 @@ OT_ROLE INV_ROLE(OT_ROLE role)
         return BOTH;
 }
 
-void send_if_ot_sender(const TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role)
+void send_if_ot_sender(TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role)
 {
     if (role == SENDER)
     {
@@ -51,7 +51,7 @@ void send_if_ot_sender(const TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE
     }
 }
 
-void send_if_ot_receiver(const TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role)
+void send_if_ot_receiver(TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role)
 {
     if (role == RECEIVER)
     {

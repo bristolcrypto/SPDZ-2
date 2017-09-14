@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 """ This module is for classes of actual assembly instructions.
 
@@ -445,6 +445,13 @@ class legendrec(base.Instruction):
     __slots__ = []
     code = base.opcodes['LEGENDREC']
     arg_format = ['cw','c']
+
+@base.vectorize
+class digestc(base.Instruction):
+    r""" Clear truncated hash computation, $c_i = H(c_j)[bytes]$. """
+    __slots__ = []
+    code = base.opcodes['DIGESTC']
+    arg_format = ['cw','c','int']
 
 ###
 ### Bitwise operations
@@ -915,6 +922,11 @@ class print_float_plain(base.IOInstruction):
     code = base.opcodes['PRINTFLOATPLAIN']
     arg_format = ['c', 'c', 'c', 'c']
 
+class print_int(base.IOInstruction):
+    r""" Print only the value of register \verb|ci| to stdout. """
+    __slots__ = []
+    code = base.opcodes['PRINTINT']
+    arg_format = ['ci']
 
 class print_char(base.IOInstruction):
     r""" Print a single character to stdout. """
@@ -952,43 +964,156 @@ class pubinput(base.PublicFileIOInstruction):
 
 @base.vectorize
 class readsocketc(base.IOInstruction):
-    """Read an int from socket and store in register"""
+    """Read a variable number of clear GF(p) values from socket for a specified client id and store in registers"""
     __slots__ = []
     code = base.opcodes['READSOCKETC']
-    arg_format = ['ciw', 'int']
+    arg_format = tools.chain(['ci'], itertools.repeat('cw'))
+
+    def has_var_args(self):
+        return True
 
 @base.vectorize
 class readsockets(base.IOInstruction):
-    """Read a secret share + MAC from socket and store in register"""
+    """Read a variable number of secret shares + MACs from socket for a client id and store in registers"""
     __slots__ = []
     code = base.opcodes['READSOCKETS']
-    arg_format = ['sw', 'int']
+    arg_format = tools.chain(['ci'], itertools.repeat('sw'))
+
+    def has_var_args(self):
+        return True
+
+@base.vectorize
+class readsocketint(base.IOInstruction):
+    """Read variable number of 32-bit int from socket for a client id and store in registers"""
+    __slots__ = []
+    code = base.opcodes['READSOCKETINT']
+    arg_format = tools.chain(['ci'], itertools.repeat('ciw'))
+
+    def has_var_args(self):
+        return True
 
 @base.vectorize
 class writesocketc(base.IOInstruction):
-    """Write int from register into socket"""
+    """
+    Write a variable number of clear GF(p) values from registers into socket 
+    for a specified client id, message_type
+    """
     __slots__ = []
     code = base.opcodes['WRITESOCKETC']
-    arg_format = ['ci', 'int']
+    arg_format = tools.chain(['ci', 'int'], itertools.repeat('c'))
+
+    def has_var_args(self):
+        return True
 
 @base.vectorize
 class writesockets(base.IOInstruction):
-    """Write secret share + MAC from register into socket"""
+    """
+    Write a variable number of secret shares + MACs from registers into a socket
+    for a specified client id, message_type
+    """
     __slots__ = []
     code = base.opcodes['WRITESOCKETS']
-    arg_format = ['s', 'int']
+    arg_format = tools.chain(['ci', 'int'], itertools.repeat('s'))
 
-class opensocket(base.IOInstruction):
-    """Open a server socket connection at the given port number"""
+    def has_var_args(self):
+        return True
+
+@base.vectorize
+class writesocketshare(base.IOInstruction):
+    """
+    Write a variable number of secret shares (without MACs) from registers into socket 
+    for a specified client id, message_type
+    """
     __slots__ = []
-    code = base.opcodes['OPENSOCKET']
+    code = base.opcodes['WRITESOCKETSHARE']
+    arg_format = tools.chain(['ci', 'int'], itertools.repeat('s'))
+
+    def has_var_args(self):
+        return True
+
+@base.vectorize
+class writesocketint(base.IOInstruction):
+    """
+    Write a variable number of 32-bit ints from registers into socket
+    for a specified client id, message_type
+    """
+    __slots__ = []
+    code = base.opcodes['WRITESOCKETINT']
+    arg_format = tools.chain(['ci', 'int'], itertools.repeat('ci'))
+
+    def has_var_args(self):
+        return True
+
+class listen(base.IOInstruction):
+    """Open a server socket on a party specific port number and listen for client connections (non-blocking)"""
+    __slots__ = []
+    code = base.opcodes['LISTEN']
     arg_format = ['int']
 
-class closesocket(base.IOInstruction):
-    """Close a server socket connection"""
+class acceptclientconnection(base.IOInstruction):
+    """Wait for a connection at the given port and write socket handle to register """
     __slots__ = []
-    code = base.opcodes['CLOSESOCKET']
-    arg_format = []
+    code = base.opcodes['ACCEPTCLIENTCONNECTION']
+    arg_format = ['ciw', 'int']
+
+class connectipv4(base.IOInstruction):
+    """Connect to server at IPv4 address in register \verb|cj| at given port. Write socket handle to register \verb|ci|"""
+    __slots__ = []
+    code = base.opcodes['CONNECTIPV4']
+    arg_format = ['ciw', 'ci', 'int']
+
+class readclientpublickey(base.IOInstruction):
+    """Read a client public key as 8 32-bit ints for a specified client id"""
+    __slots__ = []
+    code = base.opcodes['READCLIENTPUBLICKEY']
+    arg_format = tools.chain(['ci'], itertools.repeat('ci'))
+
+    def has_var_args(self):
+        return True
+
+class initsecuresocket(base.IOInstruction):
+    """Read a client public key as 8 32-bit ints for a specified client id,
+    negotiate a shared key via STS and use it for replay resistant comms"""
+    __slots__ = []
+    code = base.opcodes['INITSECURESOCKET']
+    arg_format = tools.chain(['ci'], itertools.repeat('ci'))
+
+    def has_var_args(self):
+        return True
+
+class respsecuresocket(base.IOInstruction):
+    """Read a client public key as 8 32-bit ints for a specified client id,
+    negotiate a shared key via STS and use it for replay resistant comms"""
+    __slots__ = []
+    code = base.opcodes['RESPSECURESOCKET']
+    arg_format = tools.chain(['ci'], itertools.repeat('ci'))
+
+    def has_var_args(self):
+        return True
+
+class writesharestofile(base.IOInstruction):
+    """Write shares to a file"""
+    __slots__ = []
+    code = base.opcodes['WRITEFILESHARE']
+    arg_format = itertools.repeat('s')
+
+    def has_var_args(self):
+        return True
+
+class readsharesfromfile(base.IOInstruction):
+    """
+    Read shares from a file. Pass in start posn, return finish posn, shares.
+    Finish posn will return:
+      -2 file not found
+      -1 eof reached
+      position in file after read finished
+    """
+    __slots__ = []
+    code = base.opcodes['READFILESHARE']
+    arg_format = tools.chain(['ci', 'ciw'], itertools.repeat('sw'))
+
+    def has_var_args(self):
+        return True
 
 @base.gf2n
 @base.vectorize
@@ -1173,7 +1298,7 @@ class gconvgf2n(base.Instruction):
 
 @base.gf2n
 @base.vectorize
-class startopen(base.Instruction):
+class startopen(base.VarArgsInstruction):
     """ Start opening secret register $s_i$. """
     __slots__ = []
     code = base.opcodes['STARTOPEN']
@@ -1183,12 +1308,9 @@ class startopen(base.Instruction):
         for arg in self.args[::-1]:
             program.curr_block.open_queue.append(arg.value)
 
-    def has_var_args(self):
-        return True
-
 @base.gf2n
 @base.vectorize
-class stopopen(base.Instruction):
+class stopopen(base.VarArgsInstruction):
     """ Store previous opened value in $c_i$. """
     __slots__ = []
     code = base.opcodes['STOPOPEN']
@@ -1197,9 +1319,6 @@ class stopopen(base.Instruction):
     def execute(self):
         for arg in self.args:
             arg.value = program.curr_block.open_queue.pop()
-
-    def has_var_args(self):
-        return True
 
 ###
 ### CISC-style instructions

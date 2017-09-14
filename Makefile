@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 
 include CONFIG
@@ -26,13 +26,15 @@ LIB = libSPDZ.a
 LIBSIMPLEOT = SimpleOT/libsimpleot.a
 
 
-all: gen_input online offline
+all: gen_input online offline externalIO
 
 online: Fake-Offline.x Server.x Player-Online.x Check-Offline.x
 
 offline: $(OT_EXE) Check-Offline.x
 
 gen_input: gen_input_f2n.x gen_input_fp.x
+
+externalIO: client-setup.x bankers-bonus-client.x bankers-bonus-commsec-client.x
 
 Fake-Offline.x: Fake-Offline.cpp $(COMMON) $(PROCESSOR)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -69,7 +71,14 @@ gen_input_f2n.x: Scripts/gen_input_f2n.cpp $(COMMON)
 gen_input_fp.x: Scripts/gen_input_fp.cpp $(COMMON)
 	$(CXX) $(CFLAGS) Scripts/gen_input_fp.cpp	-o gen_input_fp.x $(COMMON) $(LDLIBS)
 
+client-setup.x: client-setup.cpp $(COMMON) $(PROCESSOR)
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+bankers-bonus-client.x: ExternalIO/bankers-bonus-client.cpp $(COMMON) $(PROCESSOR)
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+bankers-bonus-commsec-client.x: ExternalIO/bankers-bonus-commsec-client.cpp $(COMMON) $(PROCESSOR)
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	-rm */*.o *.o *.x core.* *.a gmon.out
-
+	-rm */*.o *.o */*.d *.d *.x core.* *.a gmon.out

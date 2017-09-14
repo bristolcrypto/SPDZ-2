@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 from math import log, floor, ceil
 from Compiler.instructions import *
@@ -404,8 +404,8 @@ def TruncPr(a, k, m, kappa=None):
         return shift_two(a, m)
 
     if kappa is None:
-       kappa = 40
- 
+       kappa = 40 
+
     b = two_power(k-1) + a
     r_prime, r_dprime = types.sint(), types.sint()
     comparison.PRandM(r_dprime, r_prime, [types.sint() for i in range(m)],

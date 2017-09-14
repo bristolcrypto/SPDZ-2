@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef TOOLS_MKPATH_H_
 #define TOOLS_MKPATH_H_

@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Networking/sockets.h"
@@ -18,16 +18,46 @@ int nmachines;
 
 
 
+/*
+ * Get the client ip number on the socket connection for client i.
+ */
+void get_ip(int num)
+{
+  struct sockaddr_storage addr;
+  socklen_t len = sizeof addr;  
+
+  getpeername(socket_num[num], (struct sockaddr*)&addr, &len);
+
+  // supports both IPv4 and IPv6:
+  char ipstr[INET6_ADDRSTRLEN];  
+  if (addr.ss_family == AF_INET) {
+      struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+      inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
+  } else { // AF_INET6
+      struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
+      inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof ipstr);
+  }
+
+  names[num]=new octet[512];
+  strncpy((char*)names[num], ipstr, INET6_ADDRSTRLEN);
+
+  cerr << "Client IP address: " << names[num] << endl;
+}
+
+
 void get_name(int num)
 {
   // Now all machines are set up, send GO to start them.
   send(socket_num[num], GO);
   cerr << "Player " << num << " started." << endl;
 
-  // Receive Name
-  names[num]=new octet[512];
-  receive(socket_num[num],names[num],512);
-  cerr << "Player " << num << " is on machine " << names[num] << endl;
+  // Receive name sent by client (legacy) - not used here
+  octet my_name[512];
+  receive(socket_num[num],my_name,512);
+  cerr << "Player " << num << " sent name (info only) " << my_name << endl;
+
+  // Get client IP
+  get_ip(num);
 }
 
 
@@ -40,9 +70,6 @@ void send_names(int num)
   for (int i=0; i<nmachines; i++)
     { send(socket_num[num],names[i],512); }
 }
-
-
-
 
 
 /* Takes command line arguments of 
@@ -71,6 +98,7 @@ int main(int argc,char **argv)
 
   // port number one lower to avoid conflict with players
   ServerSocket server(PortnumBase - 1);
+  server.init();
 
   // set up connections
   for (i=0; i<nmachines; i++)
@@ -81,8 +109,8 @@ int main(int argc,char **argv)
     }
 
   // get names
-  for (i=0; i<nmachines; i++)
-    get_name(i);
+  for (i=0; i<nmachines; i++)  
+    get_name(i);  
 
   // send names
   for (i=0; i<nmachines; i++)

@@ -1,4 +1,4 @@
-(C) 2016 University of Bristol. See License.txt
+(C) 2017 University of Bristol. See License.txt
 
 Suppose we want to add 2 integers mod p in clear, where p has 128 bits and compute over 2 parties inputs: P0, P1.
 
@@ -130,6 +130,7 @@ inputs. The executables can be found after compiling SPDZ. Customizing those
 should be straightforward. Make sure you copy the output files to Player-Data
 /Private-Input-{i} files.
 
+There is a sockets interface to provide input and output from external client processes. See the [ExternalIO directory](./ExternalIO/README.md).
 
 Other examples
 ==============

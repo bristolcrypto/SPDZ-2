@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _BASE_OT
 #define _BASE_OT
@@ -26,8 +26,8 @@ enum OT_ROLE
 OT_ROLE INV_ROLE(OT_ROLE role);
 
 const char* role_to_str(OT_ROLE role);
-void send_if_ot_sender(const TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role);
-void send_if_ot_receiver(const TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role);
+void send_if_ot_sender(TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role);
+void send_if_ot_receiver(TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE role);
 
 class BaseOT
 {

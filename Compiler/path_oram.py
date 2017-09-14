@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 if '_Array' not in dir():
     from oram import *
@@ -76,7 +76,10 @@ def XOR(a, b):
     elif isinstance(a, sgf2n) or isinstance(b, sgf2n):
         return a + b
     else:
-        return a + b - 2*a*b
+        try:
+            return a ^ b
+        except TypeError:
+            return a + b - 2*a*b
 
 def pow2_eq(a, i, bit_length=40):
     """ Test for equality with 2**i, when a is a power of 2 (gf2n only)"""

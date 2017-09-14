@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 import itertools
 from random import randint
@@ -78,6 +78,7 @@ opcodes = dict(
     MODC = 0x36,
     MODCI = 0x37,
     LEGENDREC = 0x38,
+    DIGESTC = 0x39,
     GMULBITC = 0x136,
     GMULBITM = 0x137,
     # Open
@@ -95,13 +96,18 @@ opcodes = dict(
     # Input
     INPUT = 0x60,
     STARTINPUT = 0x61,
-    STOPINPUT = 0x62,
+    STOPINPUT = 0x62,  
     READSOCKETC = 0x63,
     READSOCKETS = 0x64,
     WRITESOCKETC = 0x65,
     WRITESOCKETS = 0x66,
-    OPENSOCKET = 0x67,
-    CLOSESOCKET = 0x68,
+    READSOCKETINT = 0x69,
+    WRITESOCKETINT = 0x6a,
+    WRITESOCKETSHARE = 0x6b,
+    LISTEN = 0x6c,
+    ACCEPTCLIENTCONNECTION = 0x6d,
+    CONNECTIPV4 = 0x6e,
+    READCLIENTPUBLICKEY = 0x6f,
     # Bitwise logic
     ANDC = 0x70,
     XORC = 0x71,
@@ -131,6 +137,7 @@ opcodes = dict(
     SUBINT = 0x9C,
     MULINT = 0x9D,
     DIVINT = 0x9E,
+    PRINTINT = 0x9F,
     # Conversion
     CONVINT = 0xC0,
     CONVMODP = 0xC1,
@@ -149,8 +156,13 @@ opcodes = dict(
     PRINTCHRINT = 0xBA,
     PRINTSTRINT = 0xBB,
     PRINTFLOATPLAIN = 0xBC,
+    WRITEFILESHARE = 0xBD,    
+    READFILESHARE = 0xBE,     
     GBITDEC = 0x184,
     GBITCOM = 0x185,
+    # Secure socket
+    INITSECURESOCKET = 0x1BA,
+    RESPSECURESOCKET = 0x1BB
 )
 
 
@@ -329,13 +341,11 @@ class RegType(object):
     @staticmethod
     def create_dict(init_value_fn):
         """ Create a dictionary with all the RegTypes as keys """
-        return {
-            RegType.ClearModp  : init_value_fn(),
-            RegType.SecretModp : init_value_fn(),
-            RegType.ClearGF2N  : init_value_fn(),
-            RegType.SecretGF2N : init_value_fn(),
-            RegType.ClearInt   : init_value_fn(),
-        }
+        res = defaultdict(init_value_fn)
+        # initialization for legacy
+        for t in RegType.Types:
+            res[t]
+        return res
 
 class ArgFormat(object):
     @classmethod
@@ -481,7 +491,7 @@ class Instruction(object):
     
     def get_encoding(self):
         enc = int_to_bytes(self.get_code())
-        # add the number of registers to a start/stop open instruction
+        # add the number of registers if instruction flagged as has var args
         if self.has_var_args():
             enc += int_to_bytes(len(self.args))
         for arg,format in zip(self.args, self.arg_format):
@@ -508,6 +518,8 @@ class Instruction(object):
             except ArgumentError as e:
                 raise CompilerError('Invalid argument "%s" to instruction: %s'
                     % (e.arg, self) + '\n' + e.msg)
+            except KeyError as e:
+                raise CompilerError('Incorrect number of arguments for instruction %s' % (self))
     
     def get_used(self):
         """ Return the set of registers that are read in this instruction. """
@@ -537,8 +549,15 @@ class Instruction(object):
     def add_usage(self, req_node):
         pass
 
+    # String version of instruction attempting to replicate encoded version
     def __str__(self):
-        return self.__class__.__name__ + ' ' + self.get_pre_arg() + ', '.join(str(a) for a in self.args)
+        
+        if self.has_var_args():
+            varargCount = str(len(self.args)) + ', '
+        else:
+            varargCount = ''
+
+        return self.__class__.__name__ + ' ' + self.get_pre_arg() + varargCount + ', '.join(str(a) for a in self.args)
 
     def __repr__(self):
         return self.__class__.__name__ + '(' + self.get_pre_arg() + ','.join(str(a) for a in self.args) + ')'
@@ -723,6 +742,11 @@ class JumpInstruction(Instruction):
 
     def get_relative_jump(self):
         return self.args[self.jump_arg]
+
+
+class VarArgsInstruction(Instruction):
+    def has_var_args(self):
+        return True
 
 
 class CISC(Instruction):

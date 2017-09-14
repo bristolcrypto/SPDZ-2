@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 from Compiler.program import Tape
 from Compiler.exceptions import *
@@ -9,6 +9,20 @@ import comparison, floatingpoint
 import math
 import util
 import operator
+
+
+class ClientMessageType:
+    """ Enum to define type of message sent to external client. Each may be array of length n."""
+    # No client message type to be sent, for backwards compatibility - virtual machine relies on this value
+    NoType = 0
+    # 3 x sint x n
+    TripleShares = 1
+    # 1 x cint x n
+    ClearModpInt = 2
+    # 1 x regint x n
+    Int32 = 3
+    # 1 x cint (fixed point left shifted by precision) x n
+    ClearModpFix = 4
 
 
 class MPCThread(object):
@@ -97,6 +111,10 @@ def read_mem_value(operation):
 
 
 class _number(object):
+    @staticmethod
+    def bit_compose(bits):
+        return sum(b << i for i,b in enumerate(bits))
+
     def square(self):
         return self * self
 
@@ -151,7 +169,6 @@ class _gf2n(object):
             return res
         else:
             return tuple(t.conv(r) for r in res)
-
 
 class _register(Tape.Register, _number):
     MemValue = staticmethod(lambda value: MemValue(value))
@@ -340,6 +357,9 @@ class _clear(_register):
     __rxor__ = __xor__
     __ror__ = __or__
 
+    def reveal(self):
+        return self
+
 
 class cint(_clear, _int):
     " Clear mod p integer type. """
@@ -348,7 +368,25 @@ class cint(_clear, _int):
     reg_type = 'c'
 
     @vectorized_classmethod
-    def load_mem(cls, address):
+    def read_from_socket(cls, client_id, n=1):
+        res = [cls() for i in range(n)]
+        readsocketc(client_id, *res)
+        if n == 1:
+            return res[0]
+        else:
+            return res
+
+    @vectorize
+    def write_to_socket(self, client_id, message_type=ClientMessageType.NoType):
+        writesocketc(client_id, message_type, self)
+
+    @vectorized_classmethod
+    def write_to_socket(self, client_id, values, message_type=ClientMessageType.NoType):
+        """ Send a list of modp integers to socket """
+        writesocketc(client_id, message_type, *values)
+
+    @vectorized_classmethod
+    def load_mem(cls, address, mem_type=None):
         return cls._load_mem(address, ldmc, ldmci)
 
     def store_in_mem(self, address):
@@ -464,6 +502,13 @@ class cint(_clear, _int):
         legendrec(res, self)
         return res
 
+    def digest(self, num_bytes):
+        res = cint()
+        digestc(res, self, num_bytes)
+        return res
+
+
+
 
 class cgf2n(_clear, _gf2n):
     __slots__ = []
@@ -478,7 +523,7 @@ class cgf2n(_clear, _gf2n):
         return res
 
     @vectorized_classmethod
-    def load_mem(cls, address):
+    def load_mem(cls, address, mem_type=None):
         return cls._load_mem(address, gldmc, gldmci)
 
     def store_in_mem(self, address):
@@ -560,7 +605,7 @@ class regint(_register, _int):
         protectmemint(regint(start), regint(end))
 
     @vectorized_classmethod
-    def load_mem(cls, address):
+    def load_mem(cls, address, mem_type=None):
         return cls._load_mem(address, ldmint, ldminti)
 
     def store_in_mem(self, address):
@@ -581,14 +626,40 @@ class regint(_register, _int):
         return res
 
     @vectorized_classmethod
-    def read_from_socket(cls):
-        res = cls()
-        readsocketc(res,0)
+    def read_from_socket(cls, client_id, n=1):
+        """ Receive n register values from socket """
+        res = [cls() for i in range(n)]
+        readsocketint(client_id, *res)
+        if n == 1:
+            return res[0]
+        else:
+            return res
+
+    @vectorized_classmethod
+    def read_client_public_key(cls, client_id):
+        """ Receive 8 register values from socket containing client public key."""
+        res = [cls() for i in range(8)]
+        readclientpublickey(client_id, *res)
         return res
 
+    @vectorized_classmethod
+    def init_secure_socket(cls, client_id, w1, w2, w3, w4, w5, w6, w7, w8):
+        """ Use 8 register values containing client public key."""
+        initsecuresocket(client_id, w1, w2, w3, w4, w5, w6, w7, w8)
+
+    @vectorized_classmethod
+    def resp_secure_socket(cls, client_id, w1, w2, w3, w4, w5, w6, w7, w8):
+        """ Receive 8 register values from socket containing client public key."""
+        respsecuresocket(client_id, w1, w2, w3, w4, w5, w6, w7, w8)
+
     @vectorize
-    def write_to_socket(self):
-        writesocketc(self,0)
+    def write_to_socket(self, client_id, message_type=ClientMessageType.NoType):
+        writesocketint(client_id, message_type, self)
+
+    @vectorized_classmethod
+    def write_to_socket(self, client_id, values, message_type=ClientMessageType.NoType):
+        """ Send a list of integers to socket """
+        writesocketint(client_id, message_type, *values)
 
     @vectorize_init
     def __init__(self, val=None, size=None):
@@ -614,7 +685,11 @@ class regint(_register, _int):
         elif isinstance(val, regint):
             addint(self, val, regint(0))
         else:
-            raise CompilerError("Cannot convert '%s' to integer" % type(val))
+            try:
+                val.to_regint(self)
+            except AttributeError:
+                raise CompilerError("Cannot convert '%s' to integer" % \
+                                    type(val))
 
     @vectorize
     @read_mem_value
@@ -652,10 +727,10 @@ class regint(_register, _int):
         return self.int_op(other, divint, True)
 
     def __mod__(self, other):
-        return cint(self) % other
+        return self - (self / other) * other
 
     def __rmod__(self, other):
-        return other % cint(self)
+        return regint(other) % self
 
     def __rpow__(self, other):
         return other**cint(self)
@@ -679,10 +754,16 @@ class regint(_register, _int):
         return 1 - (self < other)
 
     def __lshift__(self, other):
-        return regint(cint(self) << other)
+        if isinstance(other, (int, long)):
+            return self * 2**other
+        else:
+            return regint(cint(self) << other)
 
     def __rshift__(self, other):
-        return regint(cint(self) >> other)
+        if isinstance(other, (int, long)):
+            return self / 2**other
+        else:
+            return regint(cint(self) >> other)
 
     def __rlshift__(self, other):
         return regint(other << cint(self))
@@ -705,6 +786,31 @@ class regint(_register, _int):
 
     def mod2m(self, *args, **kwargs):
         return cint(self).mod2m(*args, **kwargs)
+
+    def bit_decompose(self, bit_length=None):
+        res = []
+        x = self
+        two = regint(2)
+        for i in range(bit_length or program.bit_length):
+            y = x / two
+            res.append(x - two * y)
+            x = y
+        return res
+
+    @staticmethod
+    def bit_compose(bits):
+        two = regint(2)
+        res = 0
+        for bit in reversed(bits):
+            res *= two
+            res += bit
+        return res
+
+    def reveal(self):
+        return self
+
+    def print_reg_plain(self):
+        print_int(self)
 
 
 class _secret(_register):
@@ -875,18 +981,54 @@ class sint(_secret, _int):
         stopinput(player, res)
         return res
 
+    @classmethod
+    def receive_from_client(cls, n, client_id, message_type=ClientMessageType.NoType):
+        """ Securely obtain shares of n values input by a client """
+        # send shares of a triple to client
+        triples = list(itertools.chain(*(sint.get_random_triple() for i in range(n))))
+        sint.write_shares_to_socket(client_id, triples, message_type)
+
+        received = cint.read_from_socket(client_id, n)
+        y = [0] * n
+        for i in range(n):
+            y[i] = received[i] - triples[i * 3]
+        return y
+
     @vectorized_classmethod
-    def read_from_socket(cls):
-        res = cls()
-        readsockets(res,0)
-        return res
+    def read_from_socket(cls, client_id, n=1):
+        """ Receive n shares and MAC shares from socket """
+        res = [cls() for i in range(n)]
+        readsockets(client_id, *res)
+        if n == 1:
+            return res[0]
+        else:
+            return res
 
     @vectorize
-    def write_to_socket(self):
-        writesockets(self,0)
+    def write_to_socket(self, client_id, message_type=ClientMessageType.NoType):
+        """ Send share and MAC share to socket """
+        writesockets(client_id, message_type, self)
 
     @vectorized_classmethod
-    def load_mem(cls, address):
+    def write_to_socket(self, client_id, values, message_type=ClientMessageType.NoType):
+        """ Send a list of shares and MAC shares to socket """
+        writesockets(client_id, message_type, *values)
+
+    @vectorize
+    def write_share_to_socket(self, client_id, message_type=ClientMessageType.NoType):
+        """ Send only share to socket """
+        writesocketshare(client_id, message_type, self)
+
+    @vectorized_classmethod
+    def write_shares_to_socket(cls, client_id, values, message_type=ClientMessageType.NoType, include_macs=False):
+        """ Send shares of a list of values to a specified client socket """
+        if include_macs:
+            writesockets(client_id, message_type, *values)
+        else:
+            writesocketshare(client_id, message_type, *values)
+
+    @vectorized_classmethod
+    def load_mem(cls, address, mem_type=None):
         return cls._load_mem(address, ldms, ldmsi)
 
     def store_in_mem(self, address):
@@ -1035,7 +1177,7 @@ class sgf2n(_secret, _gf2n):
             return super(sgf2n, self).mul(other)
 
     @vectorized_classmethod
-    def load_mem(cls, address):
+    def load_mem(cls, address, mem_type=None):
         return cls._load_mem(address, gldms, gldmsi)
 
     def store_in_mem(self, address):
@@ -1100,9 +1242,10 @@ class sgf2n(_secret, _gf2n):
         bit_length = bit_length or program.galois_length
         random_bits = [self.get_random_bit() \
                            for i in range(0, bit_length, step)]
+
         one = cgf2n(1)
         masked = sum([b * (one << (i * step)) for i,b in enumerate(random_bits)], self).reveal()
-        masked_bits = masked.bit_decompose(bit_length)
+        masked_bits = masked.bit_decompose(bit_length,step=step)
         return [m + r for m,r in zip(masked_bits, random_bits)]
 
     @vectorize
@@ -1456,6 +1599,29 @@ class cfix(_number):
         res.append(cint.load_mem(address))
         return cfix(*res)
 
+    @vectorized_classmethod
+    def read_from_socket(cls, client_id, n=1):
+        """ Read one or more cfix values from a socket. 
+            Sender will have already bit shifted and sent as cints."""
+        cint_input = cint.read_from_socket(client_id, n)
+        if n == 1:
+            return cfix(cint_inputs)
+        else:
+            return map(cfix, cint_inputs)
+
+    @vectorize
+    def write_to_socket(self, client_id, message_type=ClientMessageType.NoType):
+        """ Send cfix to socket. Value is sent as bit shifted cint. """
+        writesocketc(client_id, message_type, cint(self.v))
+        
+    @vectorized_classmethod
+    def write_to_socket(self, client_id, values, message_type=ClientMessageType.NoType):
+        """ Send a list of cfix values to socket. Values are sent as bit shifted cints. """
+        def cfix_to_cint(fix_val):
+            return cint(fix_val.v)
+        cint_values = map(cfix_to_cint, values)
+        writesocketc(client_id, message_type, *cint_values)
+
     @vectorize_init
     def __init__(self, v=None, size=None):
         f = self.f
@@ -1612,6 +1778,13 @@ class sfix(_number):
             cls.k = 2 * f
         else:
             cls.k = k
+
+    @classmethod
+    def receive_from_client(cls, n, client_id, message_type=ClientMessageType.NoType):
+        """ Securely obtain shares of n values input by a client.
+            Assumes client has already run bit shift to convert fixed point to integer."""
+        sint_inputs = sint.receive_from_client(n, client_id, ClientMessageType.TripleShares)
+        return map(sfix, sint_inputs)
 
     @vectorized_classmethod
     def load_mem(cls, address, mem_type=None):
@@ -1787,7 +1960,7 @@ class sfloat(_number):
     error = 0
 
     @vectorized_classmethod
-    def load_mem(cls, address):
+    def load_mem(cls, address, mem_type=None):
         res = []
         for i in range(4):
             res.append(sint.load_mem(address + i * get_global_vector_size()))
@@ -2075,10 +2248,13 @@ class Array(object):
         if value_type in _types:
             value_type = _types[value_type]
         self.address = address
-        if address is None:
-            self.address = program.malloc(length, value_type.reg_type)
         self.length = length
         self.value_type = value_type
+        if address is None:
+            self.address = self._malloc()
+
+    def _malloc(self):
+        return program.malloc(self.length, self.value_type)
 
     def delete(self):
         if program:
@@ -2106,7 +2282,7 @@ class Array(object):
             def f(i):
                 res[i] = self[start+i*step]
             return res
-        return self.value_type.load_mem(self.get_address(index))
+        return self._load(self.get_address(index))
 
     def __setitem__(self, index, value):
         if isinstance(index, slice):
@@ -2117,7 +2293,13 @@ class Array(object):
                 self[i] = value[source_index]
                 source_index.iadd(1)
             return
-        self.value_type.conv(value).store_in_mem(self.get_address(index))
+        self._store(self.value_type.conv(value), self.get_address(index))
+
+    def _load(self, address):
+        return self.value_type.load_mem(address)
+
+    def _store(self, value, address):
+        value.store_in_mem(address)
 
     def __len__(self):
         return self.length
@@ -2149,6 +2331,8 @@ class Array(object):
             self[i] = mem_value
         return self
 
+sint.dynamic_array = Array
+sgf2n.dynamic_array = Array
 
 class Matrix(object):
     def __init__(self, rows, columns, value_type, address=None):
@@ -2309,7 +2493,7 @@ class MemValue(_mem):
         else:
             self.value_type = type(value)
         self.reg_type = self.value_type.reg_type
-        self.address = program.malloc(1, self.reg_type)
+        self.address = program.malloc(1, self.value_type)
         self.deleted = False
         self.write(value)
 
@@ -2339,7 +2523,7 @@ class MemValue(_mem):
         if not isinstance(self.register, self.value_type):
             raise CompilerError('Mismatch in register type, cannot write \
                 %s to %s' % (type(self.register), self.value_type))
-        library.store_in_mem(self.register, self.address)
+        self.register.store_in_mem(self.address)
         self.last_write_block = program.curr_block
         return self
 

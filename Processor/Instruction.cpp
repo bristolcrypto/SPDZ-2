@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Processor/Instruction.h"
@@ -6,34 +6,13 @@
 #include "Processor/Processor.h"
 #include "Exceptions/Exceptions.h"
 #include "Tools/time-func.h"
+#include "Tools/parse.h"
 
 #include <stdlib.h>
 #include <algorithm>
 #include <sstream>
 #include <map>
 
-
-// Read a byte
-int get_val(istream& s)
-{
-  char cc;
-  s.get(cc);
-  int a=cc;
-  if (a<0) { a+=256; }
-  return a;
-}
-
-// Read a 4-byte integer
-int get_int(istream& s)
-{
-  int n = 0;
-  for (int i=0; i<4; i++)
-	{ n<<=8;
-      int t=get_val(s);
-      n+=t;
-    }
-  return n;
-}
 
 // Convert modp to signed bigint of a given bit length
 void to_signed_bigint(bigint& bi, const gfp& x, int len)
@@ -57,18 +36,10 @@ void to_signed_bigint(bigint& bi, const gfp& x, int len)
 }
 
 
-void get_vector(int m, vector<int>& start, istream& s)
-{
-  start.resize(m);
-  for (int i = 0; i < m; i++)
-    start[i] = get_int(s);
-}
-
-
 void Instruction::parse(istream& s)
 {
   n=0; start.resize(0);
-  r[0]=0; r[1]=0; r[2]=0;
+  r[0]=0; r[1]=0; r[2]=0; r[3]=0;
 
   int pos=s.tellg();
   opcode=get_int(s);
@@ -78,6 +49,13 @@ void Instruction::parse(istream& s)
   if (size==0)
     size=1;
 
+  parse_operands(s, pos);
+}
+
+
+void BaseInstruction::parse_operands(istream& s, int pos)
+{
+  int num_var_args = 0;
   switch (opcode)
   {
       // instructions with 3 register operands
@@ -182,6 +160,7 @@ void Instruction::parse(istream& s)
       case GRAWOUTPUT:
       case PRINTCHRINT:
       case PRINTSTRINT:
+      case PRINTINT:
         r[0]=get_int(s);
         break;
       // instructions with 3 registers + 1 integer operand
@@ -227,6 +206,8 @@ void Instruction::parse(istream& s)
       case RUN_TAPE:
       case STARTPRIVATEOUTPUT:
       case GSTARTPRIVATEOUTPUT:
+      case DIGESTC:
+      case CONNECTIPV4: // write socket handle, read IPv4 address, portnum
         r[0]=get_int(s);
         r[1]=get_int(s);
         n = get_int(s);
@@ -259,10 +240,7 @@ void Instruction::parse(istream& s)
       case GSTOPPRIVATEOUTPUT:
       case INPUTMASK:
       case GINPUTMASK:
-      case READSOCKETC:
-      case READSOCKETS:
-      case WRITESOCKETC:
-      case WRITESOCKETS:
+      case ACCEPTCLIENTCONNECTION:
         r[0]=get_int(s);
         n = get_int(s);
         break;
@@ -272,49 +250,84 @@ void Instruction::parse(istream& s)
       case JMP:
       case START:
       case STOP:
-      case OPENSOCKET:
+      case LISTEN:
         n = get_int(s);
         break;
       // instructions with no operand
       case TIME:
       case CRASH:
-      case CLOSESOCKET:
-	break;
+      	break;
       // instructions with 4 register operands
       case PRINTFLOATPLAIN:
         get_vector(4, start, s);
         break;
-      // open instructions
+      // open instructions + read/write instructions with variable length args
       case STARTOPEN:
       case STOPOPEN:
       case GSTARTOPEN:
       case GSTOPOPEN:
-        int m;
-        m = get_int(s);
-        get_vector(m, start, s);
+      case WRITEFILESHARE:
+        num_var_args = get_int(s);
+        get_vector(num_var_args, start, s);
+        break;
+
+      // read from file, input is opcode num_args, 
+      //   start_file_posn (read), end_file_posn(write) var1, var2, ...
+      case READFILESHARE:
+        num_var_args = get_int(s) - 2;
+        r[0] = get_int(s);
+        r[1] = get_int(s);
+        get_vector(num_var_args, start, s);
+        break;
+
+      // read from external client, input is : opcode num_args, client_id, var1, var2 ...
+      case READSOCKETC:
+      case READSOCKETS:
+      case READSOCKETINT:
+      case READCLIENTPUBLICKEY:   
+        num_var_args = get_int(s) - 1;
+        r[0] = get_int(s);
+        get_vector(num_var_args, start, s);
+        break;
+
+      // write to external client, input is : opcode num_args, client_id, message_type, var1, var2 ...
+      case WRITESOCKETC:
+      case WRITESOCKETS:
+      case WRITESOCKETSHARE:
+      case WRITESOCKETINT:
+        num_var_args = get_int(s) - 2;
+        r[0] = get_int(s);
+        r[1] = get_int(s);
+        get_vector(num_var_args, start, s);
+        break;
+      case INITSECURESOCKET:
+      case RESPSECURESOCKET:
+        num_var_args = get_int(s) - 1;
+        r[0] = get_int(s);
+        get_vector(num_var_args, start, s);
         break;
       // raw input
       case STOPINPUT:
       case GSTOPINPUT:
         // subtract player number argument
-        m = get_int(s) - 1;
+        num_var_args = get_int(s) - 1;
         n = get_int(s);
-        get_vector(m, start, s);
+        get_vector(num_var_args, start, s);
         break;
       case GBITDEC:
       case GBITCOM:
-        m = get_int(s) - 2;
+        num_var_args = get_int(s) - 2;
         r[0] = get_int(s);
         n = get_int(s);
-        get_vector(m, start, s);
+        get_vector(num_var_args, start, s);
         break;
       case PREP:
       case GPREP:
         // subtract extra argument
-        m = get_int(s) - 1;
+        num_var_args = get_int(s) - 1;
         s.read((char*)r, sizeof(r));
-        start.resize(m);
-        for (int i = 0; i < m; i++)
+        start.resize(num_var_args);
+        for (int i = 0; i < num_var_args; i++)
         { start[i] = get_int(s); }
         break;
       case USE_PREP:
@@ -341,8 +354,8 @@ void Instruction::parse(istream& s)
         break;
       default:
         ostringstream os;
-        os << "Invalid instruction " << hex << showbase << opcode << " at " << pos;
-        throw Processor_Error(os.str());
+        os << "Invalid instruction " << hex << showbase << opcode << " at " << dec << pos;
+        throw Invalid_Instruction(os.str());
   }
 }
 
@@ -376,7 +389,7 @@ bool Instruction::get_offline_data_usage(DataPositions& usage)
   }
 }
 
-RegType Instruction::get_reg_type() const
+int BaseInstruction::get_reg_type() const
 {
   switch (opcode) {
     case LDMINT:
@@ -386,6 +399,16 @@ RegType Instruction::get_reg_type() const
     case PUSHINT:
     case POPINT:
     case MOVINT:
+    case READSOCKETINT:
+    case WRITESOCKETINT:
+    case READCLIENTPUBLICKEY:
+    case INITSECURESOCKET:
+    case RESPSECURESOCKET:
+    case LDARG:
+    case LDINT:
+    case CONVMODP:
+    case GCONVGF2N:
+    case RAND:
       return INT;
     case PREP:
     case USE_PREP:
@@ -402,7 +425,7 @@ RegType Instruction::get_reg_type() const
   }
 }
 
-int Instruction::get_max_reg(RegType reg_type) const
+int BaseInstruction::get_max_reg(int reg_type) const
 {
   if (get_reg_type() != reg_type) { return 0; }
 
@@ -420,7 +443,7 @@ int Instruction::get_mem(RegType reg_type, SecrecyType sec_type) const
     return 0;
 }
 
-bool Instruction::is_direct_memory_access(SecrecyType sec_type) const
+bool BaseInstruction::is_direct_memory_access(SecrecyType sec_type) const
 {
   if (sec_type == SECRET)
   {
@@ -825,9 +848,20 @@ void Instruction::execute(Processor& Proc) const
       case LEGENDREC:
         to_bigint(Proc.temp.aa, Proc.read_Cp(r[1]));
         Proc.temp.aa = mpz_legendre(Proc.temp.aa.get_mpz_t(), gfp::pr().get_mpz_t());
-        //Proc.temp.aa = legendre;
         to_gfp(Proc.temp.ansp, Proc.temp.aa);
         Proc.write_Cp(r[0], Proc.temp.ansp);
+        break;
+      case DIGESTC:
+      {
+        octetStream o;
+        to_bigint(Proc.temp.aa, Proc.read_Cp(r[1]));
+
+        to_gfp(Proc.temp.ansp, Proc.temp.aa);
+        Proc.temp.ansp.pack(o);
+        // keep first n bytes
+        to_gfp(Proc.temp.ansp, o.check_sum(n));
+        Proc.write_Cp(r[0], Proc.temp.ansp);
+      }
         break;
       case DIVCI:
         if (n == 0)
@@ -1455,6 +1489,12 @@ void Instruction::execute(Processor& Proc) const
             cout << res << flush;
           }
       break;
+      case PRINTINT:
+        if (Proc.P.my_num() == 0)
+           {
+             cout << Proc.read_Ci(r[0]) << flush;
+           }
+        break;
       case PRINTSTR:
         if (Proc.P.my_num() == 0)
            {
@@ -1490,16 +1530,13 @@ void Instruction::execute(Processor& Proc) const
       case GUSE_PREP:
         break;
       case TIME:
-	cout << "Elapsed time: " << Proc.machine.timer[0].elapsed() << endl;
+        Proc.machine.time();
 	break;
       case START:
-        cout << "Starting timer " << n << " at " << Proc.machine.timer[n].elapsed()
-          << " after " << Proc.machine.timer[n].idle() << endl;
-        Proc.machine.timer[n].start();
+        Proc.machine.start(n);
         break;
       case STOP:
-        Proc.machine.timer[n].stop();
-        cout << "Stopped timer " << n << " at " << Proc.machine.timer[n].elapsed() << endl;
+        Proc.machine.stop(n);
         break;
       case RUN_TAPE:
         Proc.DataF.skip(Proc.machine.run_tape(r[0], n, r[1], -1));
@@ -1513,39 +1550,81 @@ void Instruction::execute(Processor& Proc) const
       // ***
       // TODO: read/write shared GF(2^n) data instructions
       // ***
-      case OPENSOCKET:
-        Proc.open_socket(n);
+      case LISTEN:
+        // listen for connections at port number n
+        Proc.external_clients.start_listening(n);
         break;
-      case CLOSESOCKET:
-        Proc.close_socket();
+      case ACCEPTCLIENTCONNECTION:
+      {
+        // get client connection at port number n + my_num())
+        int client_handle = Proc.external_clients.get_client_connection(n);
+        if (client_handle == -1)
+        {
+          stringstream ss;
+          ss << "No connection on port " << r[0] << endl;
+          throw Processor_Error(ss.str());
+        }
+        Proc.write_Ci(r[0], client_handle);
         break;
-      case READSOCKETC: // n is *unused atm*, r[0] is register to write to
-        int dest;
-        Proc.read_socket(dest);
-        Proc.write_Ci(r[0], (long)dest);
+      }
+      case CONNECTIPV4:
+      {
+        // connect to server at port n + my_num()
+        int ipv4 = Proc.read_Ci(r[1]);
+        int server_handle = Proc.external_clients.connect_to_server(n, ipv4);
+        Proc.write_Ci(r[0], server_handle);
+        break;
+      }
+      case READCLIENTPUBLICKEY:
+        Proc.read_client_public_key(Proc.read_Ci(r[0]), start);
+        break;
+      case INITSECURESOCKET:
+        Proc.init_secure_socket(Proc.read_Ci(r[i]), start);
+        break;
+      case RESPSECURESOCKET:
+        Proc.resp_secure_socket(Proc.read_Ci(r[i]), start);
+        break;
+      case READSOCKETINT:
+        Proc.read_socket_ints(Proc.read_Ci(r[0]), start);
+        break;
+      case READSOCKETC:
+        Proc.read_socket_vector<gfp>(Proc.read_Ci(r[0]), start);
         break;
       case READSOCKETS:
-        // read share then MAC share
-        Proc.read_socket<gfp>(Proc.temp.ansp);
-        Proc.get_Sp_ref(r[0]).set_share(Proc.temp.ansp);
-        Proc.read_socket<gfp>(Proc.temp.ansp);
-        Proc.get_Sp_ref(r[0]).set_mac(Proc.temp.ansp);
+        // read shares and MAC shares
+        Proc.read_socket_private<gfp>(Proc.read_Ci(r[0]), start, true);
         break;
       case GREADSOCKETS:
         //Proc.get_S2_ref(r[0]).get_share().pack(socket_octetstream);
         //Proc.get_S2_ref(r[0]).get_mac().pack(socket_octetstream);
         break;
-      case WRITESOCKETC: // n is *unused atm*, r[0] is register to write to;
-        Proc.write_socket((int&)Proc.get_Ci_ref(r[0]));
+      case WRITESOCKETINT:
+        Proc.write_socket(INT, CLEAR, false, Proc.read_Ci(r[0]), r[1], start);
+        break;
+      case WRITESOCKETC:
+        Proc.write_socket(MODP, CLEAR, false, Proc.read_Ci(r[0]), r[1], start);
         break;
       case WRITESOCKETS:
-        Proc.write_socket<gfp>(Proc.get_Sp_ref(r[0]).get_share());
-        Proc.write_socket<gfp>(Proc.get_Sp_ref(r[0]).get_mac());
+        // Send shares + MACs
+        Proc.write_socket(MODP, SECRET, true, Proc.read_Ci(r[0]), r[1], start);
+        break;
+      case WRITESOCKETSHARE:
+        // Send only shares, no MACs
+        // N.B. doesn't make sense to have a corresponding read instruction for this
+        Proc.write_socket(MODP, SECRET, false, Proc.read_Ci(r[0]), r[1], start);
         break;
       /*case GWRITESOCKETS:
         Proc.get_S2_ref(r[0]).get_share().pack(socket_octetstream);
         Proc.get_S2_ref(r[0]).get_mac().pack(socket_octetstream);
         break;*/
+      case WRITEFILESHARE:
+        // Write shares to file system
+        Proc.write_shares_to_file<gfp>(start);
+        break;
+      case READFILESHARE:
+        // Read shares from file system
+        Proc.read_shares_from_file<gfp>(Proc.read_Ci(r[0]), r[1], start);
+        break;        
       case PUBINPUT:
         Proc.public_input >> Proc.get_Ci_ref(r[0]);
         break;

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 
 #     ===== Compiler usage instructions =====
@@ -60,6 +60,8 @@ def main():
                       help="profile compilation")
     parser.add_option("-C", "--continous", action="store_true", dest="continuous",
                       help="continuous computation")
+    parser.add_option("-s", "--stop", action="store_true", dest="stop",
+                      help="stop on register errors")
     options,args = parser.parse_args()
     if len(args) < 1:
         parser.print_help()

@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #include "Machine.h"
 
@@ -17,12 +17,14 @@ using namespace std;
 
 Machine::Machine(int my_number, int PortnumBase, string hostname,
     string progname_str, string memtype, int lgp, int lg2, bool direct,
-    int opening_sum, bool parallel, bool receive_threads, int max_broadcast)
+    int opening_sum, bool parallel, bool receive_threads, int max_broadcast,
+    CommsecKeysPackage *commsec_keys)
   : my_number(my_number), nthreads(0), tn(0), numt(0), usage_unknown(false),
     progname(progname_str), direct(direct), opening_sum(opening_sum), parallel(parallel),
     receive_threads(receive_threads), max_broadcast(max_broadcast)
 {
   N.init(my_number,PortnumBase,hostname.c_str());
+  N.set_keys(commsec_keys);
 
   if (opening_sum < 2)
     this->opening_sum = N.num_players();
@@ -106,36 +108,9 @@ Machine::Machine(int my_number, int PortnumBase, string hostname,
       if (pinp.fail()) { throw file_error(filename); }
       progs[i].parse(pinp);
       pinp.close();
-      if (progs[i].direct_mem2_s() > M2.size_s())
-        {
-          cerr << threadname << " needs more secret mod2 memory, resizing to "
-              << progs[i].direct_mem2_s() << endl;
-          M2.resize_s(progs[i].direct_mem2_s());
-        }
-      if (progs[i].direct_memp_s() > Mp.size_s())
-        {
-          cerr << threadname << " needs more secret modp memory, resizing to "
-              << progs[i].direct_memp_s() << endl;
-          Mp.resize_s(progs[i].direct_memp_s());
-        }
-      if (progs[i].direct_mem2_c() > M2.size_c())
-        {
-          cerr << threadname << " needs more clear mod2 memory, resizing to "
-              << progs[i].direct_mem2_c() << endl;
-          M2.resize_c(progs[i].direct_mem2_c());
-        }
-      if (progs[i].direct_memp_c() > Mp.size_c())
-        {
-          cerr << threadname << " needs more clear modp memory, resizing to "
-              << progs[i].direct_memp_c() << endl;
-          Mp.resize_c(progs[i].direct_memp_c());
-        }
-      if (progs[i].direct_memi_c() > Mi.size_c())
-        {
-          cerr << threadname << " needs more clear integer memory, resizing to "
-              << progs[i].direct_memi_c() << endl;
-          Mi.resize_c(progs[i].direct_memi_c());
-        }
+      M2.minimum_size(GF2N, progs[i], threadname);
+      Mp.minimum_size(MODP, progs[i], threadname);
+      Mi.minimum_size(INT, progs[i], threadname);
     }
 
   progs[0].print_offline_cost();
@@ -179,6 +154,10 @@ Machine::Machine(int my_number, int PortnumBase, string hostname,
 
 DataPositions Machine::run_tape(int thread_number, int tape_number, int arg, int line_number)
 {
+  if (thread_number >= (int)tinfo.size())
+    throw Processor_Error("invalid thread number: " + to_string(thread_number) + "/" + to_string(tinfo.size()));
+  if (tape_number >= (int)progs.size())
+    throw Processor_Error("invalid tape number: " + to_string(tape_number) + "/" + to_string(progs.size()));
   pthread_mutex_lock(&t_mutex[thread_number]);
   tinfo[thread_number].prognum=tape_number;
   tinfo[thread_number].arg=arg;
@@ -303,10 +282,7 @@ void Machine::run()
     cerr << "Join timer: " << i << " " << join_timer[i].elapsed() << endl;
   cerr << "Finish timer: " << finish_timer.elapsed() << endl;
   cerr << "Process timer: " << proc_timer.elapsed() << endl;
-  cerr << "Time = " << timer[0].elapsed() << " seconds " << endl;
-  timer.erase(0);
-  for (map<int,Timer>::iterator it = timer.begin(); it != timer.end(); it++)
-    cerr << "Time" << it->first << " = " << it->second.elapsed() << " seconds " << endl;
+  print_timers();
 
   if (opening_sum < N.num_players() && !direct)
     cerr << "Summed at most " << opening_sum << " shares at once with indirect communication" << endl;
@@ -359,4 +335,28 @@ void Machine::run()
   cerr << "End of prog" << endl;
 }
 
+void BaseMachine::time()
+{
+  cout << "Elapsed time: " << timer[0].elapsed() << endl;
+}
 
+void BaseMachine::start(int n)
+{
+  cout << "Starting timer " << n << " at " << timer[n].elapsed()
+    << " after " << timer[n].idle() << endl;
+  timer[n].start();
+}
+
+void BaseMachine::stop(int n)
+{
+  timer[n].stop();
+  cout << "Stopped timer " << n << " at " << timer[n].elapsed() << endl;
+}
+
+void BaseMachine::print_timers()
+{
+  cerr << "Time = " << timer[0].elapsed() << " seconds " << endl;
+  timer.erase(0);
+  for (map<int,Timer>::iterator it = timer.begin(); it != timer.end(); it++)
+    cerr << "Time" << it->first << " = " << it->second.elapsed() << " seconds " << endl;
+}

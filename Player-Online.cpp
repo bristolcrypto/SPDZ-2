@@ -1,11 +1,14 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #include "Processor/Machine.h"
+#include "Math/Setup.h"
 #include "Tools/ezOptionParser.h"
+#include "Tools/Config.h"
 
 #include <iostream>
 #include <map>
 #include <string>
+#include <stdio.h>
 using namespace std;
 
 int main(int argc, const char** argv)
@@ -108,6 +111,15 @@ int main(int argc, const char** argv)
           "-b", // Flag token.
           "--max-broadcast" // Flag token.
     );
+    opt.add(
+          "0", // Default.
+          0, // Required?
+          0, // Number of args expected.
+          0, // Delimiter if expecting multiple args.
+          "Use communications security between SPDZ players", // Help description.
+          "-c", // Flag token.
+          "--player-to-player-commsec" // Flag token.
+    );
 
     opt.parse(argc, argv);
 
@@ -156,6 +168,7 @@ int main(int argc, const char** argv)
 
     string memtype, hostname;
     int lg2, lgp, pnbase, opening_sum, max_broadcast;
+    int p2pcommsec;
 
     opt.get("--portnumbase")->getInt(pnbase);
     opt.get("--lgp")->getInt(lgp);
@@ -164,11 +177,25 @@ int main(int argc, const char** argv)
     opt.get("--hostname")->getString(hostname);
     opt.get("--opening-sum")->getInt(opening_sum);
     opt.get("--max-broadcast")->getInt(max_broadcast);
+    opt.get("--player-to-player-commsec")->getInt(p2pcommsec);
 
 
+    int mynum;
+    sscanf((*allArgs[1]).c_str(), "%d", &mynum);
+
+    CommsecKeysPackage *keys = NULL;
+    if(p2pcommsec) {
+        vector<public_signing_key> pubkeys;
+        secret_signing_key mykey;
+        public_signing_key mypublickey;
+        string prep_data_prefix = get_prep_dir(2, lgp, lg2);
+        Config::read_player_config(prep_data_prefix,mynum,pubkeys,mykey,mypublickey);
+        keys = new CommsecKeysPackage(pubkeys,mykey,mypublickey);
+    }
+    
     Machine(playerno, pnbase, hostname, progname, memtype, lgp, lg2,
       opt.get("--direct")->isSet, opening_sum, opt.get("--parallel")->isSet,
-      opt.get("--threads")->isSet, max_broadcast).run();
+      opt.get("--threads")->isSet, max_broadcast, keys).run();
 
     cerr << "Command line:";
     for (int i = 0; i < argc; i++)

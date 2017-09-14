@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Processor/Program.h"
@@ -48,14 +48,14 @@ void* Main_Func(void* ptr)
   if (machine.direct)
     {
       cerr << "Using direct communication. If computation stalls, use -m when compiling." << endl;
-      MC2 = new Direct_MAC_Check<gf2n>(*(tinfo->alpha2i), *(tinfo->Nms), num);
-      MCp = new Direct_MAC_Check<gfp>(*(tinfo->alphapi), *(tinfo->Nms), num);
+      MC2 = new Direct_MAC_Check<gf2n>(*(tinfo->alpha2i),*(tinfo->Nms), num);
+      MCp = new Direct_MAC_Check<gfp>(*(tinfo->alphapi),*(tinfo->Nms), num);
     }
   else if (machine.parallel)
     {
       cerr << "Using indirect communication with background threads." << endl;
-      MC2 = new Parallel_MAC_Check<gf2n>(*(tinfo->alpha2i), *(tinfo->Nms), num, machine.opening_sum);
-      MCp = new Parallel_MAC_Check<gfp>(*(tinfo->alphapi), *(tinfo->Nms), num, machine.opening_sum);
+      MC2 = new Parallel_MAC_Check<gf2n>(*(tinfo->alpha2i),*(tinfo->Nms), num, machine.opening_sum);
+      MCp = new Parallel_MAC_Check<gfp>(*(tinfo->alphapi),*(tinfo->Nms), num, machine.opening_sum);
     }
   else
     {
@@ -64,15 +64,13 @@ void* Main_Func(void* ptr)
       MCp = new MAC_Check<gfp>(*(tinfo->alphapi), machine.opening_sum);
     }
 
-  Processor Proc(tinfo->thread_num,DataF,P,*MC2,*MCp,machine);
+  // Allocate memory for first program before starting the clock
+  Processor Proc(tinfo->thread_num,DataF,P,*MC2,*MCp,machine,progs[0]);
   Share<gf2n> a,b,c;
 
   bool flag=true;
   int program=-3; 
   // int exec=0;
-
-  // Allocate memory for first program before starting the clock
-  Proc.reset(progs[0].num_regs2(),progs[0].num_regsp(),progs[0].num_regi(),tinfo->arg);
 
   // synchronize
   cerr << "Locking for sync of thread " << num << endl;
@@ -103,7 +101,7 @@ void* Main_Func(void* ptr)
       else
         { // RUN PROGRAM
           //printf("\tClient %d about to run %d in execution %d\n",num,program,exec);
-          Proc.reset(progs[program].num_regs2(),progs[program].num_regsp(),progs[program].num_regi(),tinfo->arg);
+          Proc.reset(progs[program],tinfo->arg);
 
           // Bits, Triples, Squares, and Inverses skipping
           DataF.seekg(tinfo->pos);

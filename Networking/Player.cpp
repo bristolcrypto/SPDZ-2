@@ -1,21 +1,37 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Player.h"
 #include "Exceptions/Exceptions.h"
+#include "Networking/STS.h"
 
 #include <sys/select.h>
+#include <utility>
 
-// Use printf rather than cout so valgrind can detect thread issues
+using namespace std;
+
+CommsecKeysPackage::CommsecKeysPackage(vector<public_signing_key> playerpubs,
+                                             secret_signing_key mypriv,
+                                             public_signing_key mypub)
+{
+    player_public_keys = playerpubs;
+    my_secret_key = mypriv;
+    my_public_key = mypub;
+}
 
 void Names::init(int player,int pnb,const char* servername)
-{  
+{
   player_no=player;
   portnum_base=pnb;
   setup_names(servername);
+  keys = NULL;
   setup_server();
 }
 
+void Names::init(int player,int pnb,vector<string> Nms)
+{
+    init(player, pnb, Nms);
+}
 
 void Names::init(int player,int pnb,vector<octet*> Nms)
 {
@@ -23,18 +39,10 @@ void Names::init(int player,int pnb,vector<octet*> Nms)
   portnum_base=pnb;
   nplayers=Nms.size();
   names.resize(nplayers);
-  for (int i=0; i<nplayers; i++)
-    { names[i]=(char*)Nms[i]; }
-  setup_server();
-}
-
-
-void Names::init(int player,int pnb,vector<string> Nms)
-{
-  player_no=player;
-  portnum_base=pnb;
-  nplayers=Nms.size();
-  names=Nms;
+  for (int i=0; i<nplayers; i++) {
+      names[i]=(char*)Nms[i];
+  }
+  keys = NULL;
   setup_server();
 }
 
@@ -51,6 +59,7 @@ void Names::init(int player, int _nplayers, int pnb, const string& filename)
   player_no = player;
   nplayers = _nplayers;
   portnum_base = pnb;
+  keys = NULL;
   string line;
   while (getline(hostsfile, line))
   {
@@ -63,6 +72,11 @@ void Names::init(int player, int _nplayers, int pnb, const string& filename)
   for (unsigned int i = 0; i < names.size(); i++)
     cerr << "name: " << names[i] << endl;
   setup_server();
+}
+
+void Names::set_keys( CommsecKeysPackage *keys )
+{
+    this->keys = keys;
 }
 
 void Names::setup_names(const char *servername)
@@ -79,11 +93,16 @@ void Names::setup_names(const char *servername)
   // Send my name
   octet my_name[512];
   memset(my_name,0,512*sizeof(octet));
-  gethostname((char*)my_name,512);
+  sockaddr_in address;
+  socklen_t size = sizeof address;
+  getsockname(socket_num, (sockaddr*)&address, &size);
+  char* name = inet_ntoa(address.sin_addr);
+  // max length of IP address with ending 0
+  strncpy((char*)my_name, name, 16);
   fprintf(stderr, "My Name = %s\n",my_name);
   send(socket_num,my_name,512);
   cerr << "My number = " << player_no << endl;
-  
+
   // Now get the set of names
   int i;
   receive(socket_num,nplayers);
@@ -102,6 +121,7 @@ void Names::setup_names(const char *servername)
 void Names::setup_server()
 {
   server = new ServerSocket(portnum_base + player_no);
+  server->init();
 }
 
 
@@ -113,6 +133,7 @@ Names::Names(const Names& other)
   nplayers = other.nplayers;
   portnum_base = other.portnum_base;
   names = other.names;
+  keys = NULL;
   server = 0;
 }
 
@@ -135,7 +156,7 @@ Player::Player(const Names& Nms, int id) : PlayerBase(Nms), send_to_self_socket(
 
 
 Player::~Player()
-{ 
+{
   /* Close down the sockets */
   for (int i=0; i<nplayers; i++)
     close_client_socket(sockets[i]);
@@ -148,37 +169,42 @@ Player::~Player()
 //   Can also communicate with myself, but only with send_to and receive_from
 void Player::setup_sockets(const vector<string>& names,int portnum_base,int id_base,ServerSocket& server)
 {
-  sockets.resize(nplayers);
-  // Set up the client side
-  for (int i=player_no; i<nplayers; i++)
-    { int pn=id_base+i*nplayers+player_no;
-      fprintf(stderr, "Setting up client to %s:%d with id 0x%x\n",names[i].c_str(),portnum_base+i,pn);
-      set_up_client_socket(sockets[i],names[i].c_str(),portnum_base+i);
-      send(sockets[i], (unsigned char*)&pn, sizeof(pn));
+    sockets.resize(nplayers);
+    // Set up the client side
+    for (int i=player_no; i<nplayers; i++) {
+        int pn=id_base+i*nplayers+player_no;
+        if (i==player_no) {
+          const char* localhost = "127.0.0.1";
+          fprintf(stderr, "Setting up send to self socket to %s:%d with id 0x%x\n",localhost,portnum_base+i,pn);
+          set_up_client_socket(sockets[i],localhost,portnum_base+i);
+        } else {
+          fprintf(stderr, "Setting up client to %s:%d with id 0x%x\n",names[i].c_str(),portnum_base+i,pn);
+          set_up_client_socket(sockets[i],names[i].c_str(),portnum_base+i);
+        }
+        send(sockets[i], (unsigned char*)&pn, sizeof(pn));
     }
-  send_to_self_socket = sockets[player_no];
-  // Setting up the server side
-  for (int i=0; i<=player_no; i++)
-    { int id=id_base+player_no*nplayers+i;
-      fprintf(stderr, "Setting up server with id 0x%x\n",id);
-      sockets[i] = server.get_connection_socket(id);
+    send_to_self_socket = sockets[player_no];
+    // Setting up the server side
+    for (int i=0; i<=player_no; i++) {
+        int id=id_base+player_no*nplayers+i;
+        fprintf(stderr, "Setting up server with id 0x%x\n",id);
+        sockets[i] = server.get_connection_socket(id);
     }
 
-  for (int i = 0; i < nplayers; i++)
-    {
-      // timeout of 5 minutes
-      struct timeval tv;
-      tv.tv_sec = 300;
-      tv.tv_usec = 0;
-      int fl = setsockopt(sockets[i], SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval));
-      if (fl<0) { error("set_up_socket:setsockopt");  }
-      socket_players[sockets[i]] = i;
+    for (int i = 0; i < nplayers; i++) {
+        // timeout of 5 minutes
+        struct timeval tv;
+        tv.tv_sec = 300;
+        tv.tv_usec = 0;
+        int fl = setsockopt(sockets[i], SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(struct timeval));
+        if (fl<0) { error("set_up_socket:setsockopt");  }
+        socket_players[sockets[i]] = i;
     }
 }
 
 
 void Player::send_to(int player,const octetStream& o,bool donthash) const
-{ 
+{
   int socket = socket_to_send(player);
   o.Send(socket);
   if (!donthash)
@@ -187,12 +213,15 @@ void Player::send_to(int player,const octetStream& o,bool donthash) const
 
 
 void Player::send_all(const octetStream& o,bool donthash) const
-{ for (int i=0; i<nplayers; i++)
-     { if (i!=player_no)
-         { o.Send(sockets[i]); }
-     }
-  if (!donthash)
-    { blk_SHA1_Update(&ctx,o.get_data(),o.get_length()); }
+{
+    for (int i=0; i<nplayers; i++) {
+        if (i!=player_no) {
+            o.Send(sockets[i]);
+        }
+    }
+    if (!donthash) {
+        blk_SHA1_Update(&ctx,o.get_data(),o.get_length());
+    }
 }
 
 
@@ -211,17 +240,17 @@ void Player::Broadcast_Receive(vector<octetStream>& o,bool donthash) const
 { for (int i=0; i<nplayers; i++)
      { if (i>player_no)
 	 { o[player_no].Send(sockets[i]); }
-       else if (i<player_no)  
+       else if (i<player_no)
          { o[i].reset_write_head();
-           o[i].Receive(sockets[i]); 
+           o[i].Receive(sockets[i]);
          }
      }
   for (int i=0; i<nplayers; i++)
      { if (i<player_no)
          { o[player_no].Send(sockets[i]); }
-       else if (i>player_no)   
+       else if (i>player_no)
          { o[i].reset_write_head();
-           o[i].Receive(sockets[i]); 
+           o[i].Receive(sockets[i]);
          }
      }
   if (!donthash)
@@ -240,7 +269,7 @@ void Player::Check_Broadcast() const
 
   Broadcast_Receive(h,true);
   for (int i=0; i<nplayers; i++)
-    { if (i!=player_no) 
+    { if (i!=player_no)
         { if (!h[i].equals(h[player_no]))
 	    { throw broadcast_invalid(); }
         }
@@ -353,26 +382,97 @@ void ThreadPlayer::send_all(const octetStream& o,bool donthash) const
 TwoPartyPlayer::TwoPartyPlayer(const Names& Nms, int other_player, int id) : PlayerBase(Nms), other_player(other_player)
 {
   is_server = Nms.my_num() > other_player;
-  setup_sockets(Nms.names[other_player].c_str(), *Nms.server, Nms.portnum_base + other_player, id);
+  setup_sockets(other_player, Nms, Nms.portnum_base + other_player, id);
 }
 
 TwoPartyPlayer::~TwoPartyPlayer()
-{ 
+{
+  for(size_t i=0; i < my_secret_key.size(); i++) {
+      my_secret_key[i] = 0;
+  }
   close_client_socket(socket);
 }
 
-void TwoPartyPlayer::setup_sockets(const char* hostname, ServerSocket& server, int pn, int id)
+static pair<keyinfo,keyinfo> sts_initiator(int socket, CommsecKeysPackage *keys, int other_player)
 {
-  if (is_server)
-    {
-      fprintf(stderr, "Setting up server with id %d\n",id);
-      socket = server.get_connection_socket(id);
+  sts_msg1_t m1;
+  sts_msg2_t m2;
+  sts_msg3_t m3;
+  octetStream socket_stream;
+
+  // Start Station to Station Protocol
+  STS ke(&keys->player_public_keys[other_player][0], &keys->my_public_key[0], &keys->my_secret_key[0]);
+  m1 = ke.send_msg1();
+  socket_stream.reset_write_head();
+  socket_stream.append(m1.bytes, sizeof m1.bytes);
+  socket_stream.Send(socket);
+  socket_stream.Receive(socket);
+  socket_stream.consume(m2.pubkey, sizeof m2.pubkey);
+  socket_stream.consume(m2.sig, sizeof m2.sig);
+  m3 = ke.recv_msg2(m2);
+  socket_stream.reset_write_head();
+  socket_stream.append(m3.bytes, sizeof m3.bytes);
+  socket_stream.Send(socket);
+
+  // Use results of STS to generate send and receive keys.
+  vector<unsigned char> sendKey = ke.derive_secret(crypto_secretbox_KEYBYTES);
+  vector<unsigned char> recvKey = ke.derive_secret(crypto_secretbox_KEYBYTES);
+  keyinfo sendkeyinfo = make_pair(sendKey,0);
+  keyinfo recvkeyinfo = make_pair(recvKey,0);
+  return make_pair(sendkeyinfo,recvkeyinfo);
+}
+
+static pair<keyinfo,keyinfo> sts_responder(int socket, CommsecKeysPackage *keys, int other_player)
+    // secret_signing_key mykey, public_signing_key mypubkey, public_signing_key theirkey)
+{
+  sts_msg1_t m1;
+  sts_msg2_t m2;
+  sts_msg3_t m3;
+  octetStream socket_stream;
+
+  // Start Station to Station Protocol for the responder
+  STS ke(&keys->player_public_keys[other_player][0], &keys->my_public_key[0], &keys->my_secret_key[0]);
+  socket_stream.Receive(socket);
+  socket_stream.consume(m1.bytes, sizeof m1.bytes);
+  m2 = ke.recv_msg1(m1);
+  socket_stream.reset_write_head();
+  socket_stream.append(m2.pubkey, sizeof m2.pubkey);
+  socket_stream.append(m2.sig, sizeof m2.sig);
+  socket_stream.Send(socket);
+  socket_stream.Receive(socket);
+  socket_stream.consume(m3.bytes, sizeof m3.bytes);
+  ke.recv_msg3(m3);
+
+  // Use results of STS to generate send and receive keys.
+  vector<unsigned char> recvKey = ke.derive_secret(crypto_secretbox_KEYBYTES);
+  vector<unsigned char> sendKey = ke.derive_secret(crypto_secretbox_KEYBYTES);
+  keyinfo sendkeyinfo = make_pair(sendKey,0);
+  keyinfo recvkeyinfo = make_pair(recvKey,0);
+  return make_pair(sendkeyinfo,recvkeyinfo);
+}
+
+void TwoPartyPlayer::setup_sockets(int other_player, const Names &nms, int portNum, int id)
+{
+    const char *hostname = nms.names[other_player].c_str();
+    ServerSocket *server = nms.server;
+    if (is_server) {
+        fprintf(stderr, "Setting up server with id %d\n",id);
+        socket = server->get_connection_socket(id);
+        if(NULL != nms.keys) {
+            pair<keyinfo,keyinfo> send_recv_pair = sts_responder(socket, nms.keys, other_player);
+            player_send_key = send_recv_pair.first;
+            player_recv_key = send_recv_pair.second;
+        }
     }
-  else
-    {
-      fprintf(stderr, "Setting up client to %s:%d with id %d\n", hostname, pn, id);
-      set_up_client_socket(socket, hostname, pn);
-      ::send(socket, (unsigned char*)&id, sizeof(id));
+    else {
+        fprintf(stderr, "Setting up client to %s:%d with id %d\n", hostname, portNum, id);
+        set_up_client_socket(socket, hostname, portNum);
+        ::send(socket, (unsigned char*)&id, sizeof(id));
+        if(NULL != nms.keys) {
+            pair<keyinfo,keyinfo> send_recv_pair = sts_initiator(socket, nms.keys, other_player);
+            player_send_key = send_recv_pair.first;
+            player_recv_key = send_recv_pair.second;
+        }
     }
 }
 
@@ -381,31 +481,37 @@ int TwoPartyPlayer::other_player_num() const
   return other_player;
 }
 
-void TwoPartyPlayer::send(octetStream& o) const
+void TwoPartyPlayer::send(octetStream& o)
 {
+  if(p2pcommsec) {
+    o.encrypt_sequence(&player_send_key.first[0], player_send_key.second);
+    player_send_key.second++;
+  }
   o.Send(socket);
 }
 
-void TwoPartyPlayer::receive(octetStream& o) const
+void TwoPartyPlayer::receive(octetStream& o)
 {
   o.reset_write_head();
   o.Receive(socket);
+  if(p2pcommsec) {
+    o.decrypt_sequence(&player_recv_key.first[0], player_recv_key.second);
+    player_recv_key.second++;
+  }
 }
 
-void TwoPartyPlayer::send_receive_player(vector<octetStream>& o) const
+void TwoPartyPlayer::send_receive_player(vector<octetStream>& o)
 {
   {
     if (is_server)
     {
-      o[0].Send(socket);
-      o[1].reset_write_head();
-      o[1].Receive(socket);
+      send(o[0]);
+      receive(o[1]);
     }
     else
     {
-      o[1].reset_write_head();
-      o[1].Receive(socket);
-      o[0].Send(socket);
+      receive(o[1]);
+      send(o[0]);
     }
   }
 }

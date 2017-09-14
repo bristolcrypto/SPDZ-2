@@ -1,11 +1,13 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 
 run_player() {
     port=$((RANDOM%10000+10000))
-    >&2 echo Port $port
     bin=$1
     shift
+    if ! test -e $SPDZROOT/logs; then
+        mkdir $SPDZROOT/logs
+    fi
     if test $bin = Player-Online.x; then
 	params="$* -pn $port -h localhost"
     else
@@ -14,13 +16,16 @@ run_player() {
     if test $bin = Player-KeyGen.x -a ! -e Player-Data/Params-Data; then
 	./Setup.x $players $size 40
     fi
-    >&2 echo Parameters $params
+    >&2 echo Running $SPDZROOT/Server.x $players $port
     $SPDZROOT/Server.x $players $port &
     rem=$(($players - 2))
     for i in $(seq 0 $rem); do
+      echo "trying with player $i"
+      >&2 echo Running $prefix $SPDZROOT/$bin $i $params
       $prefix $SPDZROOT/$bin $i $params 2>&1 | tee $SPDZROOT/logs/$i &
     done
     last_player=$(($players - 1))
+    >&2 echo Running $prefix $SPDZROOT/$bin $last_player $params
     $prefix $SPDZROOT/$bin $last_player $params > $SPDZROOT/logs/$last_player 2>&1 || return 1
 }
 

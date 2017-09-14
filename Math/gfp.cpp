@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Math/gfp.h"
@@ -71,10 +71,15 @@ void gfp::SHL(const gfp& x,int n)
 {
   if (!x.is_zero())
     {
-      bigint bi;
-      to_bigint(bi,x,false);
-      mpn_lshift(bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_size,n);
-      to_gfp(*this, bi);
+      if (n != 0)
+        {
+          bigint bi;
+          to_bigint(bi,x,false);
+          mpn_lshift(bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_size,n);
+          to_gfp(*this, bi);
+        }
+      else
+        assign(x);
     }
   else
     {
@@ -87,10 +92,15 @@ void gfp::SHR(const gfp& x,int n)
 {
   if (!x.is_zero())
     {
-      bigint bi;
-      to_bigint(bi,x);
-      mpn_rshift(bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_size,n);
-      to_gfp(*this, bi);
+      if (n != 0)
+        {
+          bigint bi;
+          to_bigint(bi,x);
+          mpn_rshift(bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_d, bi.get_mpz_t()->_mp_size,n);
+          to_gfp(*this, bi);
+        }
+      else
+        assign(x);
     }
   else
     {

@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _Instruction
 #define _Instruction
@@ -11,7 +11,6 @@
 #include <vector>
 using namespace std;
 
-#include "Processor/Memory.h"
 #include "Processor/Data_Files.h"
 #include "Networking/Player.h"
 #include "Math/Integer.h"
@@ -23,7 +22,7 @@ class Processor;
 /* 
  * Opcode constants
  *
- * Whenever these are changed the corresponding dict in Compiler/instructions.py
+ * Whenever these are changed the corresponding dict in Compiler/instructions_base.py
  * MUST also be changed. (+ the documentation)
  */
 enum
@@ -89,6 +88,7 @@ enum
     MODC = 0x36,
     MODCI = 0x37,
     LEGENDREC = 0x38,
+    DIGESTC = 0x39,
     // Open
     STARTOPEN = 0xA0,
     STOPOPEN = 0xA1,
@@ -107,8 +107,13 @@ enum
     READSOCKETS = 0x64,
     WRITESOCKETC = 0x65,
     WRITESOCKETS = 0x66,
-    OPENSOCKET = 0x67,
-    CLOSESOCKET = 0x68,
+    READSOCKETINT = 0x69,
+    WRITESOCKETINT = 0x6a,
+    WRITESOCKETSHARE = 0x6b,
+    LISTEN = 0x6c,
+    ACCEPTCLIENTCONNECTION = 0x6d,
+    CONNECTIPV4 = 0x6e,
+    READCLIENTPUBLICKEY = 0x6f,
     // Bitwise logic
     ANDC = 0x70,
     XORC = 0x71,
@@ -138,6 +143,7 @@ enum
     SUBINT = 0x9C,
     MULINT = 0x9D,
     DIVINT = 0x9E,
+    PRINTINT = 0x9F,
     // Conversion
     CONVINT = 0xC0,
     CONVMODP = 0xC1,
@@ -156,6 +162,8 @@ enum
     PRINTCHRINT = 0xBA,
     PRINTSTRINT = 0xBB,
     PRINTFLOATPLAIN = 0xBC,
+    WRITEFILESHARE = 0xBD,     
+    READFILESHARE = 0xBE,     
 
     // GF(2^n) versions
     
@@ -241,6 +249,9 @@ enum
     GRAWOUTPUT = 0x1B7,
     GSTARTPRIVATEOUTPUT = 0x1B8,
     GSTOPPRIVATEOUTPUT = 0x1B9,
+    // Commsec ops
+    INITSECURESOCKET = 0x1BA,
+    RESPSECURESOCKET = 0x1BB
 };
 
 
@@ -259,7 +270,6 @@ enum SecrecyType {
   MAX_SECRECY_TYPE
 };
 
-
 struct TempVars {
   gf2n ans2; Share<gf2n> Sans2;
   gfp ansp;  Share<gfp>  Sansp;
@@ -273,29 +283,38 @@ struct TempVars {
 };
 
 
-class Instruction
+class BaseInstruction
 {
+protected:
   int opcode;         // The code
   int size;           // Vector size
-  int r[3];           // Three possible registers
+  int r[4];           // Fixed parameter registers
   unsigned int n;     // Possible immediate value
   vector<int>  start; // Values for a start/stop open
 
-  public:
+public:
+  virtual ~BaseInstruction() {};
 
-  // Reads a single instruction from the istream
-  void parse(istream& s); 
-
-  // Return whether usage is known
-  bool get_offline_data_usage(DataPositions& usage);
+  void parse_operands(istream& s, int pos);
 
   bool is_gf2n_instruction() const { return ((opcode&0x100)!=0); }
-  RegType get_reg_type() const;
+  virtual int get_reg_type() const;
 
   bool is_direct_memory_access(SecrecyType sec_type) const;
 
   // Returns the maximal register used
-  int get_max_reg(RegType reg_type) const;
+  int get_max_reg(int reg_type) const;
+};
+
+
+class Instruction : public BaseInstruction
+{
+public:
+  // Reads a single instruction from the istream
+  void parse(istream& s);
+
+  // Return whether usage is known
+  bool get_offline_data_usage(DataPositions& usage);
 
   // Returns the memory size used if applicable and known
   int get_mem(RegType reg_type, SecrecyType sec_type) const;

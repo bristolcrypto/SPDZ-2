@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 import math
 import operator
@@ -54,7 +54,14 @@ def bit_decompose(a, bits):
         return a.bit_decompose(bits)
 
 def bit_compose(bits):
-    return sum(b << i for i,b in enumerate(bits))
+    bits = list(bits)
+    try:
+        if bits:
+            return bits[0].bit_compose(bits)
+        else:
+            return 0
+    except AttributeError:
+        return sum(b << i for i,b in enumerate(bits))
 
 def series(a):
     sum = 0
@@ -103,3 +110,25 @@ OR = or_op
 def pow2(bits):
     powers = [b.if_else(2**2**i, 1) for i,b in enumerate(bits)]
     return tree_reduce(operator.mul, powers)
+
+def irepeat(l, n):
+    return reduce(operator.add, ([i] * n for i in l))
+
+def int_len(x):
+    return len(bin(x)) - 2
+
+def reveal(x):
+    if isinstance(x, str):
+        return x
+    try:
+        return x.reveal()
+    except AttributeError:
+        pass
+    try:
+        return [reveal(y) for y in x]
+    except TypeError:
+        pass
+    return x
+
+def is_constant(x):
+    return isinstance(x, (int, long, bool))

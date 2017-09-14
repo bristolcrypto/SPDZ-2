@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 /*
  * Machine.h
@@ -21,7 +21,19 @@
 #include <map>
 using namespace std;
 
-class Machine
+class BaseMachine
+{
+protected:
+    std::map<int,Timer> timer;
+    void print_timers();
+
+public:
+    void time();
+    void start(int n);
+    void stop(int n);
+};
+
+class Machine : public BaseMachine
 {
   /* The mutex's lock the C-threads and then only release
    * then we an MPC thread is ready to run on the C-thread.
@@ -58,7 +70,6 @@ class Machine
   Memory<gfp> Mp;
   Memory<Integer> Mi;
 
-  std::map<int,Timer> timer;
   vector<Timer> join_timer;
   Timer finish_timer;
   
@@ -73,7 +84,7 @@ class Machine
 
   Machine(int my_number, int PortnumBase, string hostname, string progname,
       string memtype, int lgp, int lg2, bool direct, int opening_sum, bool parallel,
-      bool receive_threads, int max_broadcast);
+      bool receive_threads, int max_broadcast, CommsecKeysPackage *keys);
 
   DataPositions run_tape(int thread_number, int tape_number, int arg, int line_number);
   void join_tape(int thread_number);

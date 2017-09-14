@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _Memory
 #define _Memory
@@ -14,6 +14,7 @@ template<class T> class Memory;
 template<class T> ostream& operator<<(ostream& s,const Memory<T>& M);
 template<class T> istream& operator>>(istream& s,Memory<T>& M);
 
+#include "Processor/Program.h"
 #include "Math/Share.h"
 template<class T> 
 class Memory
@@ -71,6 +72,8 @@ class Memory
   void protect_c(unsigned int start, unsigned int end)
     { (void)start, (void)end; cerr << "Memory protection not activated" << endl; }
 #endif
+
+  void minimum_size(RegType reg_type, const Program& program, string threadname);
 
   friend ostream& operator<< <>(ostream& s,const Memory<T>& M);
   friend istream& operator>> <>(istream& s,Memory<T>& M);

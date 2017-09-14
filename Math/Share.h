@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #ifndef _Share
@@ -69,6 +69,19 @@ class Share
    void sub(const Share<T>& S1,const Share<T>& S2);
    void add(const Share<T>& S1) { add(*this,S1); }
 
+   Share<T> operator+(const Share<T>& x) const
+   { Share<T> res; res.add(*this, x); return res; }
+   template <class U>
+   Share<T> operator*(const U& x) const
+   { Share<T> res; res.mul(*this, x); return res; }
+
+   Share<T>& operator+=(const Share<T>& x) { add(x); return *this; }
+   template <class U>
+   Share<T>& operator*=(const U& x) { mul(*this, x); return *this; }
+
+   Share<T> operator<<(int i) { return this->operator*(T(1) << i); }
+   Share<T>& operator<<=(int i) { return *this = *this << i; }
+
    // Input and output from a stream
    //  - Can do in human or machine only format (later should be faster)
    void output(ostream& s,bool human) const
@@ -79,6 +92,11 @@ class Share
      { a.input(s,human);
        mac.input(s,human);
      }
+
+   friend ostream& operator<<(ostream& s, const Share<T>& x) { x.output(s, true); return s; }
+
+   void pack(octetStream& os) const;
+   void unpack(octetStream& os);
 
     /* Takes a vector of shares, one from each player and
      * determines the shared value

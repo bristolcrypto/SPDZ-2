@@ -4,10 +4,42 @@ Player-Data/*
 Prep-Data/*
 logs/*
 Language-Definition/main.pdf
+keys/*
 
 # Personal CONFIG file #
 ##############################
 CONFIG.mine
+config_mine.py
+
+# Temporary files #
+###################
+*.bak
+*.orig
+*.rej
+*.tmp
+callgrind.out.*
+
+# Vim
+.*.swp
+tags
+
+# Eclipse #
+###########
+.project
+.cproject
+.settings
+
+# VS Code IDE #
+###############
+.vscode/**
+
+# Temporary files #
+###################
+*.bak
+*.orig
+*.rej
+*.tmp
+callgrind.out.*
 
 # Compiled source #
 ###################
@@ -25,6 +57,8 @@ Programs/Public-Input/*
 *.bc
 *.sch
 *.a
+*.static
+*.d
 
 # Packages #
 ############
@@ -59,6 +93,8 @@ Programs/Public-Input/*
 *.log
 *.sql
 *.sqlite
+*.data
+Persistence/*
 
 # OS generated files #
 ######################
@@ -70,3 +106,4 @@ Programs/Public-Input/*
 .Trashes
 ehthumbs.db
 Thumbs.db
+**/*.x.dSYM/**

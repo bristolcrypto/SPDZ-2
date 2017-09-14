@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _OTTOOLS
 #define _OTTOOLS
@@ -12,7 +12,7 @@
 /*
  * Generate a secure, random seed between 2 parties via commitment
  */
-void random_seed_commit(octet* seed, const TwoPartyPlayer& player, int len);
+void random_seed_commit(octet* seed, TwoPartyPlayer& player, int len);
 
 /*
  * GF(2^128) multiplication using Intel instructions

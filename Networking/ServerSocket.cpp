@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 /*
  * ServerSocket.cpp
@@ -57,7 +57,7 @@ ServerSocket::ServerSocket(int Portnum) : portnum(Portnum)
           sleep(1);
         }
       else
-        { cerr << "Bound on port " << Portnum << endl; }
+        { cerr << "ServerSocket is bound on port " << Portnum << endl; }
     }
   if (fl<0) { error("set_up_socket:bind");  }
 
@@ -65,6 +65,11 @@ ServerSocket::ServerSocket(int Portnum) : portnum(Portnum)
   fl=listen(main_socket, 1000);
   if (fl<0) { error("set_up_socket:listen");  }
 
+  // Note: must not call virtual init() method in constructor: http://www.aristeia.com/EC3E/3E_item9.pdf
+}
+
+void ServerSocket::init()
+{
   pthread_create(&thread, 0, accept_thread, this);
 }
 
@@ -95,6 +100,15 @@ void ServerSocket::accept_clients()
     }
 }
 
+int ServerSocket::get_connection_count()
+{
+  data_signal.lock();
+  int connection_count = clients.size();
+  data_signal.unlock();
+  return connection_count;
+}
+
+
 int ServerSocket::get_connection_socket(int id)
 {
   data_signal.lock();
@@ -108,8 +122,60 @@ int ServerSocket::get_connection_socket(int id)
   while (clients.find(id) == clients.end())
       data_signal.wait();
 
-  int client = clients[id];
+  int client_socket = clients[id];
   used.insert(id);
   data_signal.unlock();
-  return client;
+  return client_socket;
+}
+
+void* anonymous_accept_thread(void* server_socket)
+{
+  ((AnonymousServerSocket*)server_socket)->accept_clients();
+  return 0;
+}
+
+int AnonymousServerSocket::global_client_socket_count = 0;
+
+void AnonymousServerSocket::init()
+{
+  pthread_create(&thread, 0, anonymous_accept_thread, this);
+}
+
+int AnonymousServerSocket::get_connection_count()
+{
+  return num_accepted_clients;
+}
+
+void AnonymousServerSocket::accept_clients()
+{
+  while (true)
+  {
+    struct sockaddr dest;
+    memset(&dest, 0, sizeof(dest));    /* zero the struct before filling the fields */
+    int socksize = sizeof(dest);
+    int consocket = accept(main_socket, (struct sockaddr *)&dest, (socklen_t*) &socksize);
+    if (consocket<0) { error("set_up_socket:accept"); }
+
+    data_signal.lock();
+    client_connection_queue.push(consocket);
+    num_accepted_clients++;
+    data_signal.broadcast();
+    data_signal.unlock();
+  }
+}
+
+int AnonymousServerSocket::get_connection_socket(int& client_id)
+{
+  data_signal.lock();
+
+  //while (clients.find(next_client_id) == clients.end())
+  while (client_connection_queue.empty())
+      data_signal.wait();
+
+  client_id = global_client_socket_count;
+  global_client_socket_count++;
+  int client_socket = client_connection_queue.front();
+  client_connection_queue.pop();
+  data_signal.unlock();
+  return client_socket;
 }

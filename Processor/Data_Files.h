@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _Data_Files
 #define _Data_Files
@@ -73,9 +73,9 @@ class Data_Files
 
   DataPositions usage;
 
-  const string prep_data_dir;
-
   public:
+
+  const string prep_data_dir;
 
   static const char* dtype_names[N_DTYPE];
   static const char* field_names[N_DATA_FIELD_TYPE];

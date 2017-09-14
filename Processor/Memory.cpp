@@ -1,11 +1,30 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #include "Processor/Memory.h"
+#include "Processor/Instruction.h"
 #include "Math/gf2n.h"
 #include "Math/gfp.h"
 #include "Math/Integer.h"
 
 #include <fstream>
+
+template<class T>
+void Memory<T>::minimum_size(RegType reg_type, const Program& program, string threadname)
+{
+  const int* sizes = program.direct_mem(reg_type);
+  if (sizes[SECRET] > size_s())
+    {
+      cerr << threadname << " needs more secret " << T::type_string() << " memory, resizing to "
+          << sizes[SECRET] << endl;
+      resize_s(sizes[SECRET]);
+    }
+  if (sizes[CLEAR] > size_c())
+    {
+      cerr << threadname << " needs more clear " << T::type_string() << " memory, resizing to "
+          << sizes[CLEAR] << endl;
+      resize_c(sizes[CLEAR]);
+    }
+}
 
 #ifdef MEMPROTECT
 template<class T>

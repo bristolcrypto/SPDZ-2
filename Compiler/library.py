@@ -1,4 +1,4 @@
-# (C) 2016 University of Bristol. See License.txt
+# (C) 2017 University of Bristol. See License.txt
 
 from Compiler.types import cint,sint,cfix,sfix,sfloat,MPCThread,Array,MemValue,cgf2n,sgf2n,_number,_mem,_register,regint,Matrix,_types, cfloat
 from Compiler.instructions import *
@@ -72,9 +72,7 @@ def print_str(s, *args):
             else:
                 val = args[i]
             if isinstance(val, program.Tape.Register):
-                if val.reg_type == 'ci':
-                    cint(val).print_reg_plain()
-                elif val.is_clear:
+                if val.is_clear:
                     val.print_reg_plain()
                 else:
                     raise CompilerError('Cannot print secret value:', args[i])
@@ -355,7 +353,7 @@ class FunctionBlock(Function):
         parent_node = get_tape().req_node
         get_tape().open_scope(lambda x: x[0], None, 'begin-' + self.name)
         block = get_tape().active_basicblock
-        block.persistent_allocation = True
+        block.alloc_pool = defaultdict(set)
         del parent_node.children[-1]
         self.node = get_tape().req_node
         print 'Compiling function', self.name

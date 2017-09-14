@@ -1,15 +1,15 @@
-(C) 2016 University of Bristol. See License.txt
+(C) 2017 University of Bristol. See License.txt
 
 Software for the SPDZ and MASCOT secure multi-party computation protocols.
 See `Programs/Source/` for some example MPC programs, and `tutorial.md` for
-a basic tutorial. More examples and documentation will be available in the
-coming weeks.
+a basic tutorial.
 
 See also https://www.cs.bris.ac.uk/Research/CryptographySecurity/SPDZ
 
 #### Requirements:
  - GCC
  - MPIR library, compiled with C++ support (use flag --enable-cxx when running configure)
+ - libsodium library, tested against 1.0.11
  - CPU supporting AES-NI and PCLMUL
  - Python 2.x, ideally with `gmpy` package (for testing)
 

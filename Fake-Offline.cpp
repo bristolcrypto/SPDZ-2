@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 
 #include "Math/gf2n.h"
@@ -489,8 +489,6 @@ int main(int argc, const char** argv)
   ofstream outf;
   bigint p;
   generate_online_setup(outf, prep_data_prefix, p, lgp, lg2);
-
-  generate_keys(prep_data_prefix, nplayers);
 
   /* Find number players and MAC keys etc*/
   gfp keyp,pp; keyp.assign_zero();

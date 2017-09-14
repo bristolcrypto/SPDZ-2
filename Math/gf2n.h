@@ -1,4 +1,4 @@
-// (C) 2016 University of Bristol. See License.txt
+// (C) 2017 University of Bristol. See License.txt
 
 #ifndef _gf2n
 #define _gf2n
@@ -80,6 +80,7 @@ class gf2n_short
   void assign_one()              { a=1; } 
   void assign_x()                { a=2; }
   void assign(word aa)           { a=aa&mask; }
+  void assign(long aa)           { assign(word(aa)); }
   void assign(int aa)            { a=static_cast<unsigned int>(aa)&mask; }
   void assign(const char* buffer) { a = *(word*)buffer; }
 
@@ -93,8 +94,10 @@ class gf2n_short
   }
   
   gf2n_short()              { a=0; }
-  gf2n_short(const gf2n_short& g) { assign(g); }
-  gf2n_short(int g)         { assign(g); }
+  gf2n_short(word a)		{ assign(a); }
+  gf2n_short(long a)		{ assign(a); }
+  gf2n_short(int a)			{ assign(a); }
+  gf2n_short(const char* a) { assign(a); }
   ~gf2n_short()             { ; }
 
   gf2n_short& operator=(const gf2n_short& g)
@@ -167,7 +170,7 @@ class gf2n_short
   void input(istream& s,bool human);
 
   friend ostream& operator<<(ostream& s,const gf2n_short& x)
-    { s << hex << "0x" << x.a << dec;
+    { s << hex << showbase << x.a << dec;
       return s;
     }
   friend istream& operator>>(istream& s,gf2n_short& x)
