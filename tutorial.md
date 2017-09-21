@@ -26,6 +26,12 @@ For that, type in terminal:
 
 The command will output to stderr the number of registers, rounds and other parameters used for measuring the requirements from the offline phase.
 
+To run the program, you first need to set up the parameters of the different players. This can be done with the following command.
+
+```
+sh Scripts/setup-online.sh
+```
+
 To simply run the program between 2 parties simulated locally, type in terminal:
 
 ```
