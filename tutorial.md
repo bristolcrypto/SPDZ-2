@@ -26,6 +26,12 @@ For that, type in terminal:
 
 The command will output to stderr the number of registers, rounds and other parameters used for measuring the requirements from the offline phase.
 
+To run the program, you first need to set up the parameters of the different players. This can be done with the following command.
+
+```
+sh Scripts/setup-online.sh
+```
+
 To simply run the program between 2 parties simulated locally, type in terminal:
 
 ```
@@ -125,7 +131,7 @@ Looking back at the addition example, in Player-Data/Private-Input-{i} for i in
 {0,1} we have to provide one integer in each file. Because the conversion
 between human readable form to SPDZ data types is time expensive, we have to
 feed the numbers in binary form. There is a script for that: gen_input_fp.cpp
-and gen_input_f2.cpp in the Scripts directory designed for generating gfp
+and gen_input_f2n.cpp in the Scripts directory designed for generating gfp
 inputs. The executables can be found after compiling SPDZ. Customizing those
 should be straightforward. Make sure you copy the output files to Player-Data
 /Private-Input-{i} files.
