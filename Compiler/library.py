@@ -88,7 +88,7 @@ def print_str(s, *args):
                     print_str('-')
                 cint((positive_left - right + 1) >> val.f).print_reg_plain()
                 x = 0
-                max_dec_base = 6 # max 32-bit precision
+                max_dec_base = 8 # max 32-bit precision
                 last_nonzero = 0
                 for i,b in enumerate(reversed(right.bit_decompose(val.f))):
                     x += b * int(10**max_dec_base / 2**(i + 1))
@@ -830,7 +830,7 @@ def map_reduce_single(n_parallel, n_loops, initializer, reducer, mem_state=None)
     n_parallel = n_parallel or 1
     if mem_state is None:
         # default to list of MemValues to allow varying types
-        mem_state = [MemValue(x) for x in initializer()]
+        mem_state = [type(x).MemValue(x) for x in initializer()]
         use_array = False
     else:
         # use Arrays for multithread version
@@ -1146,7 +1146,7 @@ def stop_timer(timer_id=0):
 # Fixed point ops
 
 from math import ceil, log
-from floatingpoint import PreOR, TruncPr, two_power
+from floatingpoint import PreOR, TruncPr, two_power, shift_two
 
 def approximate_reciprocal(divisor, k, f, theta):
     """
@@ -1189,17 +1189,15 @@ def approximate_reciprocal(divisor, k, f, theta):
     q = MemValue(two_power(k))
     e = MemValue(twos_complement(normalized_divisor.read()))
 
-    @for_range(theta)
-    def block(i):
-        qread = q.read()
-        eread = e.read()
-        qread += (qread * eread) >> k
-        eread = (eread * eread) >> k
+    qr = q.read()
+    er = e.read()
 
-        q.write(qread)
-        e.write(eread)
+    for i in range(theta):
+        qr = qr + shift_two(qr * er, k)
+        er = shift_two(er * er, k)
 
-    res = q >> (2*k - 2*f - cnt_leading_zeros)
+    q = qr
+    res = shift_two(q, (2*k - 2*f - cnt_leading_zeros))
 
     return res
 
@@ -1221,7 +1219,6 @@ def cint_cint_division(a, b, k, f):
     absolute_b = b * sign_b
     absolute_a = a * sign_a
     w0 = approximate_reciprocal(absolute_b, k, f, theta)
-
     A = Array(theta, cint)
     B = Array(theta, cint)
     W = Array(theta, cint)
@@ -1229,11 +1226,11 @@ def cint_cint_division(a, b, k, f):
     A[0] = absolute_a
     B[0] = absolute_b
     W[0] = w0
-    @for_range(1, theta)
-    def block(i):
-        A[i] = (A[i - 1] * W[i - 1]) >> f
-        B[i] = (B[i - 1] * W[i - 1]) >> f
+    for i in range(1, theta):
+        A[i] = shift_two(A[i - 1] * W[i - 1], f)
+        B[i] = shift_two(B[i - 1] * W[i - 1], f)
         W[i] = two - B[i]
+
     return (sign_a * sign_b) * A[theta - 1]
 
 from Compiler.program import Program
@@ -1257,10 +1254,11 @@ def sint_cint_division(a, b, k, f, kappa):
     B[0] = absolute_b
     W[0] = w0
 
+
     @for_range(1, theta)
     def block(i):
         A[i] = TruncPr(A[i - 1] * W[i - 1], 2*k, f, kappa)
-        temp = (B[i - 1] * W[i - 1]) >> f
+        temp = shift_two(B[i - 1] * W[i - 1], f)
         # no reading and writing to the same variable in a for loop.
         W[i] = two - temp
         B[i] = temp

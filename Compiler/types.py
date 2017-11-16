@@ -1593,6 +1593,9 @@ class cfix(_number):
         else:
             cls.k = k
 
+    def conv(self):
+        return self.v
+
     @vectorized_classmethod
     def load_mem(cls, address, mem_type=None):
         res = []
@@ -1635,15 +1638,10 @@ class cfix(_number):
             self.v = v.v
         elif isinstance(v, MemValue):
             self.v = v
-        elif v == None:
-            self.v = 0
 
     @vectorize
     def load_int(self, v):
         self.v = cint(v) * (2 ** self.f)
-
-    def conv(self):
-        return self
 
     def store_in_mem(self, address):
         self.v.store_in_mem(address)
@@ -1779,6 +1777,9 @@ class sfix(_number):
         else:
             cls.k = k
 
+    def conv(self):
+        return self.v
+
     @classmethod
     def receive_from_client(cls, n, client_id, message_type=ClientMessageType.NoType):
         """ Securely obtain shares of n values input by a client.
@@ -1791,6 +1792,12 @@ class sfix(_number):
         res = []
         res.append(sint.load_mem(address))
         return sfix(*res)
+
+    @classmethod
+    def load_sint(cls, v):
+        res = cls()
+        res.load_int(v)
+        return res
 
     @vectorize_init
     def __init__(self, _v=None, size=None):
@@ -1810,19 +1817,16 @@ class sfix(_number):
             self.v = (1-2*_v.s)*a
         elif isinstance(_v, sfix):
             self.v = _v.v
-        elif isinstance(_v, MemValue):
+        elif isinstance(_v, MemFix):
             #this is a memvalue object
-            self.v = _v
-        elif _v == None:
-            self.v = sint(0)
+            self.v = _v.v
+        # elif _v == None:
+        #     self.v = sint(0)
         self.kappa = sfix.kappa 
 
     @vectorize
     def load_int(self, v):
-        self.v = sint(v) << self.f
-
-    def conv(self):
-        return self
+        self.v = sint(v) * (2**self.f)
 
     def store_in_mem(self, address):
         self.v.store_in_mem(address)
@@ -1844,12 +1848,9 @@ class sfix(_number):
     @vectorize 
     def mul(self, other):
         other = parse_type(other)
-        if isinstance(other, sfix):
+        if isinstance(other, (sfix, cfix)):
             val = floatingpoint.TruncPr(self.v * other.v, self.k * 2, self.f, self.kappa)
             return sfix(val)
-        elif isinstance(other, cfix):
-            res = sfix((self.v * other.v) >> sfix.f)
-            return res
         elif isinstance(other, cfix.scalars):
             scalar_fix = cfix(other)
             return self * scalar_fix
@@ -1940,8 +1941,11 @@ class sfix(_number):
 # (precision n1) 41 + (precision n2) 41 + (stat_sec) 40 = 82 + 40 = 122 <= 128
 # with statistical security of 40
 
-sfix.set_precision(20, 41)
-cfix.set_precision(20, 41)
+fixed_lower = 20
+fixed_upper = 40
+
+sfix.set_precision(fixed_lower, fixed_upper)
+cfix.set_precision(fixed_lower, fixed_upper)
 
 class sfloat(_number):
     """ Shared floating point data type, representing (1 - 2s)*(1 - z)*v*2^p.
@@ -2356,6 +2360,9 @@ class Matrix(object):
             self[i].assign_all(value)
         return self
 
+    def get_address(self):
+        return self.address
+
 
 class SubMultiArray(object):
     def __init__(self, sizes, value_type, address, index):
@@ -2424,6 +2431,37 @@ class sfloatMatrix(Matrix):
 
     def __getitem__(self, index):
         return sfloatArray(self.columns, self.multi_array[index].address)
+
+class sfixArray(Array):
+    def __init__(self, length, address=None):
+        self.array = Array(length, sint, address)
+        self.length = length
+        self.value_type = sfix
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return Array.__getitem__(self, index)
+        return sfix(*self.array[index])
+
+    def __setitem__(self, index, value):
+        if isinstance(index, slice):
+            return Array.__setitem__(self, index, value)
+        self.array[index] = value.v
+
+    def get_address(self, index):
+        return self.array.get_address(index)
+
+class sfixMatrix(Matrix):
+    def __init__(self, rows, columns, address=None):
+        self.rows = rows
+        self.columns = columns
+        self.multi_array = Matrix(rows, columns, sint, address)
+
+    def __getitem__(self, index):
+        return sfixArray(self.columns, self.multi_array[index].address)
+
+    def get_address(self):
+        return self.multi_array.get_address()
 
 class _mem(_number):
     __add__ = lambda self,other: self.read() + other
@@ -2578,28 +2616,22 @@ class MemFloat(_mem):
 
 class MemFix(_mem):
     def __init__(self, *args):
-        arg_type = type(*args)
-        if arg_type == sfix:
-            value = sfix(*args)
-        elif arg_type == cfix:
-            value = cfix(*args)
-        else:
-            raise CompilerError('MemFix init argument error')
-        self.reg_type = value.reg_type
+        value = sfix(*args)
         self.v = MemValue(value.v)
 
     def write(self, *args):
-        if self.reg_type == 's':
-            value = sfix(*args)
-        else:
-            value = cfix(*args)
+        value = sfix(*args)
         self.v.write(value.v)
 
+    def reveal(self):
+        return cfix(self.v.reveal())
+
     def read(self):
-        if self.reg_type == 's':
-            return sfix(self.v)
+        val = self.v.read()
+        if isinstance(val, sint):
+            return sfix(val)
         else:
-            return cfix(self.v)
+            return cfix(val)
 
 def getNamedTupleType(*names):
     class NamedTuple(object):
@@ -2640,5 +2672,16 @@ def getNamedTupleType(*names):
 sfloat.Array = sfloatArray
 sfloat.Matrix = sfloatMatrix
 sfloat.MemValue = MemFloat
+
+sfix.Array = sfixArray
+sfix.Matrix = sfixMatrix
+
+sfix.MemValue = MemFix
+
+cint.MemValue = MemValue
+sint.MemValue = MemValue
+
+sgf2n.MemValue = MemValue
+cgf2n.MemValue = MemValue
 
 import library
