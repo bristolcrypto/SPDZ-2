@@ -10,6 +10,16 @@
 #include "Tools/sha1.h"
 #include "Exceptions/Exceptions.h"
 #include "Networking/data.h"
+#include "Math/bigint.h"
+
+
+void octetStream::clear()
+{
+    if (data)
+        delete[] data;
+    data = 0;
+    len = mxlen = ptr = 0;
+}
 
 void octetStream::assign(const octetStream& os)
 {
@@ -26,7 +36,17 @@ void octetStream::assign(const octetStream& os)
 }
 
 
-octetStream::octetStream(int maxlen)
+void octetStream::swap(octetStream& os)
+{
+  const size_t size = sizeof(octetStream);
+  char tmp[size];
+  memcpy(tmp, this, size);
+  memcpy(this, &os, size);
+  memcpy(&os, tmp, size);
+}
+
+
+octetStream::octetStream(size_t maxlen)
 {
   mxlen=maxlen; len=0; ptr=0;
   data=new octet[mxlen];
@@ -73,13 +93,13 @@ bigint octetStream::check_sum(int req_bytes) const
 bool octetStream::equals(const octetStream& a) const
 {
   if (len!=a.len) { return false; }
-  for (int i=0; i<len; i++)
+  for (size_t i=0; i<len; i++)
     { if (data[i]!=a.data[i]) { return false; } }
   return true;
 }
 
 
-void octetStream::append_random(int num)
+void octetStream::append_random(size_t num)
 {
   resize(len+num);
   randombytes_buf(data+len, num);
@@ -95,26 +115,26 @@ void octetStream::concat(const octetStream& os)
 }
 
 
-void octetStream::store_bytes(octet* x, const int l)
+void octetStream::store_bytes(octet* x, const size_t l)
 {
   resize(len+4+l); 
-  encode_length(data+len,l); len+=4;
+  encode_length(data+len,l,4); len+=4;
   memcpy(data+len,x,l*sizeof(octet));
   len+=l;
 }
 
-void octetStream::get_bytes(octet* ans, int& length)
+void octetStream::get_bytes(octet* ans, size_t& length)
 {
-  length=decode_length(data+ptr); ptr+=4;
+  length=decode_length(data+ptr,4); ptr+=4;
   memcpy(ans,data+ptr,length*sizeof(octet));
   ptr+=length;
 }
 
-void octetStream::store(unsigned int l)
+void octetStream::store_int(size_t l, int n_bytes)
 {
-  resize(len+4);
-  encode_length(data+len,l); 
-  len+=4;
+  resize(len+n_bytes);
+  encode_length(data+len,l,n_bytes);
+  len+=n_bytes;
 }
 
 void octetStream::store(int l)
@@ -125,10 +145,11 @@ void octetStream::store(int l)
 }
 
 
-void octetStream::get(unsigned int& l)
+size_t octetStream::get_int(int n_bytes)
 {
-  l=decode_length(data+ptr);
-  ptr+=4;
+  size_t res=decode_length(data+ptr,n_bytes);
+  ptr+=n_bytes;
+  return res;
 }
 
 void octetStream::get(int& l)
@@ -140,14 +161,14 @@ void octetStream::get(int& l)
 
 void octetStream::store(const bigint& x)
 {
-  int num=numBytes(x);
+  size_t num=numBytes(x);
   resize(len+num+5);
 
   (data+len)[0]=0;
   if (x<0) { (data+len)[0]=1; }
   len++;
 
-  encode_length(data+len,num); len+=4;
+  encode_length(data+len,num,4); len+=4;
   bytesFromBigint(data+len,x,num);
   len+=num;
 }
@@ -159,14 +180,63 @@ void octetStream::get(bigint& ans)
   if (sign!=0 && sign!=1) { throw bad_value(); }
   ptr++;
 
-  long length=decode_length(data+ptr); ptr+=4;
+  long length=decode_length(data+ptr,4); ptr+=4;
 
-  ans=0;
   if (length!=0)
     { bigintFromBytes(ans, data+ptr, length);
       ptr+=length;
-      if (sign==1) { ans=-ans; }
+      if (sign)
+        mpz_neg(ans.get_mpz_t(), ans.get_mpz_t());
     }
+  else
+    ans=0;
+}
+
+
+void octetStream::store(const vector<int>& v)
+{
+  store(v.size());
+  for (int x : v)
+    store(x);
+}
+
+
+void octetStream::get(vector<int>& v)
+{
+  size_t size;
+  get(size);
+  v.resize(size);
+  for (int& x : v)
+    get(x);
+}
+
+
+void octetStream::exchange(int send_socket, int receive_socket)
+{
+  send(send_socket, len, LENGTH_SIZE);
+  size_t new_len;
+  receive(receive_socket, new_len, LENGTH_SIZE);
+  if (new_len > mxlen)
+      resize_precise(max(new_len, len));
+  const size_t buffer_size = 100000;
+  size_t sent = 0, received = 0;
+  while (sent < len or received < new_len)
+    {
+      if (sent < len)
+        {
+          size_t to_send = min(buffer_size, len - sent);
+          send(send_socket, data + sent, to_send);
+          sent += to_send;
+        }
+      if (received < new_len)
+        {
+          size_t to_receive = min(buffer_size, new_len - received);
+          receive(receive_socket, data + received, to_receive);
+          received += to_receive;
+        }
+    }
+  len = new_len;
+  reset_read_head();
 }
 
 // Construct the ciphertext as `crypto_secretbox(pt, counter||random)`
@@ -206,8 +276,7 @@ void octetStream::decrypt_sequence(const octet* key, uint64_t counter)
     throw Processor_Error("Cannot decrypt octetStream: ciphertext too short");
   }
   for(i=7; i>=0; i--) {
-      recvCounter |= (uint64_t) *(nonce + i);
-      recvCounter = recvCounter << (i*8);
+      recvCounter |= ((uint64_t) *(nonce + i)) << (i*8);
   }
   if(recvCounter != counter + 1) {
       throw Processor_Error("Incorrect counter on stream.  Possible MITM.");
@@ -250,7 +319,7 @@ void octetStream::decrypt(const octet* key)
 
 ostream& operator<<(ostream& s,const octetStream& o)
 {
-  for (int i=0; i<o.len; i++)
+  for (size_t i=0; i<o.len; i++)
     { int t0=o.data[i]&15;
       int t1=o.data[i]>>4;
       s << hex << t1 << t0 << dec;

@@ -13,6 +13,10 @@ AUTH = $(patsubst %.cpp,%.o,$(wildcard Auth/*.cpp))
 
 PROCESSOR = $(patsubst %.cpp,%.o,$(wildcard Processor/*.cpp))
 
+ifeq ($(USE_NTL),1)
+FHEOFFLINE = $(patsubst %.cpp,%.o,$(wildcard FHEOffline/*.cpp FHE/*.cpp))
+endif
+
 # OT stuff needs GF2N_LONG, so only compile if this is enabled
 ifeq ($(USE_GF2N_LONG),1)
 OT = $(patsubst %.cpp,%.o,$(filter-out OT/OText_main.cpp,$(wildcard OT/*.cpp)))
@@ -28,6 +32,10 @@ LIBSIMPLEOT = SimpleOT/libsimpleot.a
 
 all: gen_input online offline externalIO
 
+ifeq ($(USE_NTL),1)
+all: she-offline
+endif
+
 online: Fake-Offline.x Server.x Player-Online.x Check-Offline.x
 
 offline: $(OT_EXE) Check-Offline.x
@@ -35,6 +43,8 @@ offline: $(OT_EXE) Check-Offline.x
 gen_input: gen_input_f2n.x gen_input_fp.x
 
 externalIO: client-setup.x bankers-bonus-client.x bankers-bonus-commsec-client.x
+
+she-offline: Check-Offline.x spdz2-offline.x
 
 Fake-Offline.x: Fake-Offline.cpp $(COMMON) $(PROCESSOR)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -79,6 +89,11 @@ bankers-bonus-client.x: ExternalIO/bankers-bonus-client.cpp $(COMMON) $(PROCESSO
 
 bankers-bonus-commsec-client.x: ExternalIO/bankers-bonus-commsec-client.cpp $(COMMON) $(PROCESSOR)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+ifeq ($(USE_NTL),1)
+spdz2-offline.x: $(COMMON) $(FHEOFFLINE) spdz2-offline.cpp
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+endif
 
 clean:
 	-rm */*.o *.o */*.d *.d *.x core.* *.a gmon.out

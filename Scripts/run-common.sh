@@ -36,6 +36,8 @@ sleep 0.5
 
 players=${PLAYERS:-2}
 
+SPDZROOT=${SPDZROOT:-.}
+
 #. Scripts/setup.sh
 
 mkdir logs

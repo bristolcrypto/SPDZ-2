@@ -222,6 +222,17 @@ void Commit_To_Seeds(vector<PRNG>& G,
 }
 
 
+void generate_challenge(vector<int>& challenge, const Player& P)
+{
+  octet seed[SEED_SIZE];
+  Create_Random_Seed(seed, P, SEED_SIZE);
+  PRNG G;
+  G.SetSeed(seed);
+  for (size_t i = 0; i < challenge.size(); i++)
+    challenge[i] = G.get_uchar() % 2;
+}
+
+
 
 template void Commit_And_Open(vector<gf2n>& data,const Player& P);
 template void Create_Random(gf2n& ans,const Player& P);

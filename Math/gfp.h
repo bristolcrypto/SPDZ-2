@@ -77,7 +77,6 @@ class gfp
   gfp& operator=(const __m128i other)
     {
       memcpy(a.x, &other, sizeof(other));
-      a.x[2] = 0;
       return *this;
     }
 
@@ -109,6 +108,9 @@ class gfp
   template <int T>
   void add(void* x)
     { ZpD.Add<T>(a.x,a.x,(mp_limb_t*)x); }
+  template <int T>
+  void add(octetStream& os)
+    { add<T>(os.consume(size())); }
   void add(const gfp& x,const gfp& y)
     { Add(a,x.a,y.a,ZpD); }  
   void add(const gfp& x)
@@ -131,6 +133,8 @@ class gfp
   gfp& operator+=(const gfp& x) { add(x); return *this; }
   gfp& operator-=(const gfp& x) { sub(x); return *this; }
   gfp& operator*=(const gfp& x) { mul(x); return *this; }
+
+  gfp operator-() { gfp res = *this; res.negate(); return res; }
 
   void square(const gfp& aa)
     { Sqr(a,aa.a,ZpD); }

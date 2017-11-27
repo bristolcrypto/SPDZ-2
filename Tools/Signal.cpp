@@ -34,6 +34,14 @@ void Signal::wait()
     pthread_cond_wait(&cond, &mutex);
 }
 
+int Signal::wait(int seconds)
+{
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += seconds;
+    return pthread_cond_timedwait(&cond, &mutex, &ts);
+}
+
 void Signal::broadcast()
 {
     pthread_cond_broadcast(&cond);

@@ -224,11 +224,10 @@ OTMachine::OTMachine(int argc, const char** argv)
         vector<string> names(2);
         names[my_num] = "localhost";
         names[1-my_num] = name;
-        N.resize(N.size() + 1);
-        N[N.size()-1].init(my_num, portnum_base, names);
+        N.push_back(new Names(my_num, portnum_base + 1000 * N.size(), names));
     }
 
-    P = new TwoPartyPlayer(N[0], 1 - my_num, 500);
+    P = new TwoPartyPlayer(*N[0], 1 - my_num, 500);
 
     timeval baseOTstart, baseOTend;
     gettimeofday(&baseOTstart, NULL);
@@ -276,6 +275,8 @@ OTMachine::OTMachine(int argc, const char** argv)
 
 OTMachine::~OTMachine()
 {
+    for (auto names : N)
+        delete names;
     delete bot_;
     delete P;
 }
@@ -322,7 +323,7 @@ void OTMachine::run()
         }
         // now setup resources for each thread
         // round robin with the names
-        players[i] = new TwoPartyPlayer(N[i%N.size()], 1 - my_num, (i+1) * 1000);
+        players[i] = new TwoPartyPlayer(*N[i%N.size()], 1 - my_num, (i+1) * 1000);
         tinfos[i].thread_num = i+1;
         tinfos[i].other_player_num = 1 - my_num;
         tinfos[i].nOTs = nOTs;

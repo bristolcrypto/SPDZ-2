@@ -1,3 +1,5 @@
+// (C) 2017 University of Bristol. See License.txt
+
 
 #include <iostream>
 #include <iomanip>

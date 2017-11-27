@@ -18,6 +18,7 @@ using namespace std;
 
 #include "Tools/random.h"
 #include "Math/field_types.h"
+#include "Math/bigint.h"
 
 
 class int128
@@ -94,6 +95,7 @@ class gf2n_long
 
   static void init_field(int nn);
   static int degree() { return n; }
+  static int default_degree() { return 128; }
   static int get_nterms() { return nterms; }
   static int get_t(int i)
     { if (i==0)      { return t1; }
@@ -158,6 +160,9 @@ class gf2n_long
   template<int T>
   void add(octet* x)
     { a^=int128(_mm_loadu_si128((__m128i*)x)); }
+  template <int T>
+  void add(octetStream& os)
+    { add<T>(os.consume(size())); }
   void add(octet* x)
     { add<0>(x); }
   void sub(const gf2n_long& x,const gf2n_long& y)

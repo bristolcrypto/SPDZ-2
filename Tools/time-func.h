@@ -32,6 +32,8 @@ class Timer
       { clock_gettime(clock_id, &startv); }
   Timer& start();
   void stop();
+  void reset();
+
   double elapsed();
   double idle();
 
@@ -42,6 +44,15 @@ class Timer
   clockid_t clock_id;
 
   long long elapsed_since_last_start();
+};
+
+class TimeScope
+{
+  Timer& timer;
+
+public:
+  TimeScope(Timer& timer) : timer(timer) { timer.start(); }
+  ~TimeScope() { timer.stop(); }
 };
 
 inline Timer& Timer::start()
@@ -61,6 +72,12 @@ inline void Timer::stop()
   elapsed_time += elapsed_since_last_start();
 
   running = false;
+  clock_gettime(clock_id, &startv);
+}
+
+inline void Timer::reset()
+{
+  elapsed_time = 0;
   clock_gettime(clock_id, &startv);
 }
 

@@ -14,8 +14,11 @@
  * of the rest of the application; and so can be re-used.
  */
 
+// 32-bit length fields for compatibility
+#ifndef LENGTH_SIZE
+#define LENGTH_SIZE 4
+#endif
 
-#include "Math/bigint.h"
 #include "Networking/data.h"
 #include "Networking/sockets.h"
 
@@ -28,20 +31,24 @@
  
 using namespace std;
 
+class bigint;
 
 class octetStream
 {
-  int len,mxlen,ptr;  // len is the "write head", ptr is the "read head"
+  size_t len,mxlen,ptr;  // len is the "write head", ptr is the "read head"
   octet *data;
 
   public:
 
-  void resize(int l);
+  void resize(size_t l);
+  void resize_precise(size_t l);
+  void clear();
 
   void assign(const octetStream& os);
+  void swap(octetStream& os);
 
   octetStream() : len(0), mxlen(0), ptr(0), data(0) {}
-  octetStream(int maxlen);
+  octetStream(size_t maxlen);
   octetStream(const octetStream& os);
   octetStream& operator=(const octetStream& os)
     { if (this!=&os) { assign(os); }
@@ -49,8 +56,9 @@ class octetStream
     }
   ~octetStream() { if(data) delete[] data; }
   
-  int get_ptr() const     { return ptr; }
-  int get_length() const  { return len; }
+  size_t get_ptr() const     { return ptr; }
+  size_t get_length() const  { return len; }
+  size_t get_max_length() const { return mxlen; }
   octet* get_data() const { return data; }
 
   bool done() const 	  { return ptr == len; }
@@ -70,29 +78,36 @@ class octetStream
   void reset_write_head() { len=0; ptr=0; }
 
   // Move len back num
-  void rewind_write_head(int num) { len-=num; }
+  void rewind_write_head(size_t num) { len-=num; }
 
   bool equals(const octetStream& a) const;
+  bool operator==(const octetStream& a) const { return equals(a); }
 
   /* Append NUM random bytes from dev/random */
-  void append_random(int num);
+  void append_random(size_t num);
 
   // Append with no padding for decoding
-  void append(const octet* x,const int l); 
+  void append(const octet* x,const size_t l);
   // Read l octets, with no padding for decoding
-  void consume(octet* x,const int l);
+  void consume(octet* x,const size_t l);
   // Return pointer to next l octets and advance pointer
-  octet* consume(int l) { octet* res = data+ptr; ptr += l; return res; }
+  octet* consume(size_t l) { octet* res = data+ptr; ptr += l; return res; }
 
   /* Now store and restore different types of data (with padding for decoding) */
 
-  void store_bytes(octet* x, const int l); //not really "bytes"...
-  void get_bytes(octet* ans, int& l);      //Assumes enough space in ans
+  void store_bytes(octet* x, const size_t l); //not really "bytes"...
+  void get_bytes(octet* ans, size_t& l);      //Assumes enough space in ans
 
-  void store(unsigned int a);
+  void store(unsigned int a) { store_int(a, 4); }
   void store(int a);
-  void get(unsigned int& a);
+  void get(unsigned int& a) { a = get_int(4); }
   void get(int& a);
+
+  void store(size_t a) { store_int(a, 8); }
+  void get(size_t& a) { a = get_int(8); }
+
+  void store_int(size_t a, int n_bytes);
+  size_t get_int(int n_bytes);
 
   void store(const bigint& x);
   void get(bigint& ans);
@@ -103,7 +118,10 @@ class octetStream
   template <class T>
   void unserialize(T& x) { consume((octet*)&x, sizeof(x)); }
 
-  void consume(octetStream& s,int l)
+  void store(const vector<int>& v);
+  void get(vector<int>& v);
+
+  void consume(octetStream& s,size_t l)
     { s.resize(l);
       consume(s.data,l);
       s.len=l;
@@ -111,7 +129,7 @@ class octetStream
 
   void Send(int socket_num) const;
   void Receive(int socket_num);
-  void ReceiveExpected(int socket_num, int expected);
+  void ReceiveExpected(int socket_num, size_t expected);
 
   // In-place authenticated encryption using sodium; key of length crypto_generichash_BYTES
   // ciphertext = Enc(message) | MAC | counter
@@ -126,19 +144,30 @@ class octetStream
   void encrypt(const octet* key);
   void decrypt(const octet* key);
 
+  void exchange(int send_socket, int receive_socket);
+
   friend ostream& operator<<(ostream& s,const octetStream& o);
   friend class PRNG;
 };
 
 
-inline void octetStream::resize(int l)
+inline void octetStream::resize(size_t l)
 {
   if (l<mxlen) { return; }
   l=2*l;      // Overcompensate in the resize to avoid calling this a lot
+  resize_precise(l);
+}
+
+
+inline void octetStream::resize_precise(size_t l)
+{
+  if (l == mxlen)
+    return;
+
   octet* nd=new octet[l];
   if (data)
     {
-      memcpy(nd,data,len*sizeof(octet));
+      memcpy(nd, data, min(len, l) * sizeof(octet));
       delete[] data;
     }
   data=nd;
@@ -146,7 +175,7 @@ inline void octetStream::resize(int l)
 }
 
 
-inline void octetStream::append(const octet* x, const int l)
+inline void octetStream::append(const octet* x, const size_t l)
 {
   if (len+l>mxlen)
     resize(len+l);
@@ -155,7 +184,7 @@ inline void octetStream::append(const octet* x, const int l)
 }
 
 
-inline void octetStream::consume(octet* x,const int l)
+inline void octetStream::consume(octet* x,const size_t l)
 {
   memcpy(x,data+ptr,l*sizeof(octet));
   ptr+=l;
@@ -164,32 +193,27 @@ inline void octetStream::consume(octet* x,const int l)
 
 inline void octetStream::Send(int socket_num) const
 {
-  octet blen[4];
-  encode_length(blen,len);
-  send(socket_num,blen,4);
+  send(socket_num,len,LENGTH_SIZE);
   send(socket_num,data,len);
 }
 
 
 inline void octetStream::Receive(int socket_num)
 {
-  octet blen[4];
-  receive(socket_num,blen,4);
-
-  int nlen=decode_length(blen);
+  size_t nlen=0;
+  receive(socket_num,nlen,LENGTH_SIZE);
   len=0;
-  resize(nlen);
+  resize_precise(nlen);
   len=nlen;
 
   receive(socket_num,data,len);
 }
 
-inline void octetStream::ReceiveExpected(int socket_num, int expected)
+inline void octetStream::ReceiveExpected(int socket_num, size_t expected)
 {
-  octet blen[4];
-  receive(socket_num,blen,4);
+  size_t nlen = 0;
+  receive(socket_num, nlen, LENGTH_SIZE);
 
-  int nlen=decode_length(blen);
   if (nlen != expected) {
       cerr << "octetStream::ReceiveExpected: got " << nlen <<
               " length, expected " << expected << endl;

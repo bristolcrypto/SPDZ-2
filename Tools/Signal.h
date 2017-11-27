@@ -21,6 +21,7 @@ public:
     void lock();
     void unlock();
     void wait();
+    int wait(int seconds);
     void broadcast();
 };
 

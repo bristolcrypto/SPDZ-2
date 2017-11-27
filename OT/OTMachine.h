@@ -23,7 +23,7 @@ public:
     TwoPartyPlayer* P;
     BitVector baseReceiverInput;
     BaseOT* bot_;
-    vector<Names> N;
+    vector<Names*> N;
 
     OTMachine(int argc, const char** argv);
     ~OTMachine();

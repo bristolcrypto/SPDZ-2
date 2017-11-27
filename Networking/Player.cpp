@@ -30,7 +30,10 @@ void Names::init(int player,int pnb,const char* servername)
 
 void Names::init(int player,int pnb,vector<string> Nms)
 {
-    init(player, pnb, Nms);
+  vector<octet*> names;
+  for (auto& name : Nms)
+    names.push_back((octet*)name.c_str());
+  init(player, pnb, names);
 }
 
 void Names::init(int player,int pnb,vector<octet*> Nms)
@@ -46,8 +49,8 @@ void Names::init(int player,int pnb,vector<octet*> Nms)
   setup_server();
 }
 
-// initialize hostnames from file
-void Names::init(int player, int _nplayers, int pnb, const string& filename)
+// initialize names from file, no Server.x coordination.
+void Names::init(int player, int pnb, const string& filename, int nplayers_wanted)
 {
   ifstream hostsfile(filename.c_str());
   if (hostsfile.fail())
@@ -57,20 +60,22 @@ void Names::init(int player, int _nplayers, int pnb, const string& filename)
      throw file_error(ss.str().c_str());
   }
   player_no = player;
-  nplayers = _nplayers;
+  nplayers = 0;
   portnum_base = pnb;
   keys = NULL;
   string line;
   while (getline(hostsfile, line))
   {
-    if (line.length() > 0 && line.at(0) != '#')
+    if (line.length() > 0 && line.at(0) != '#') {
       names.push_back(line);
+      nplayers++;
+      if (nplayers_wanted > 0 and nplayers_wanted == nplayers)
+        break;
+    }
   }
-  if ((int)names.size() < nplayers)
-    throw invalid_params();
-  names.resize(nplayers);
+  cerr << "Got list of " << nplayers << " players from file: " << endl;
   for (unsigned int i = 0; i < names.size(); i++)
-    cerr << "name: " << names[i] << endl;
+    cerr << "    " << names[i] << endl;
   setup_server();
 }
 
@@ -146,7 +151,8 @@ Names::~Names()
 
 
 
-Player::Player(const Names& Nms, int id) : PlayerBase(Nms), send_to_self_socket(-1)
+Player::Player(const Names& Nms, int id) :
+        PlayerBase(Nms.my_num()), send_to_self_socket(-1)
 {
   nplayers=Nms.nplayers;
   player_no=Nms.player_no;
@@ -187,7 +193,7 @@ void Player::setup_sockets(const vector<string>& names,int portnum_base,int id_b
     // Setting up the server side
     for (int i=0; i<=player_no; i++) {
         int id=id_base+player_no*nplayers+i;
-        fprintf(stderr, "Setting up server with id 0x%x\n",id);
+        fprintf(stderr, "As a server, waiting for client with id 0x%x to connect.\n",id);
         sockets[i] = server.get_connection_socket(id);
     }
 
@@ -205,39 +211,62 @@ void Player::setup_sockets(const vector<string>& names,int portnum_base,int id_b
 
 void Player::send_to(int player,const octetStream& o,bool donthash) const
 {
+  TimeScope ts(timer);
   int socket = socket_to_send(player);
   o.Send(socket);
   if (!donthash)
     { blk_SHA1_Update(&ctx,o.get_data(),o.get_length()); }
+  sent += o.get_length();
 }
 
 
 void Player::send_all(const octetStream& o,bool donthash) const
 {
-    for (int i=0; i<nplayers; i++) {
-        if (i!=player_no) {
-            o.Send(sockets[i]);
-        }
-    }
-    if (!donthash) {
-        blk_SHA1_Update(&ctx,o.get_data(),o.get_length());
-    }
+  TimeScope ts(timer);
+  for (int i=0; i<nplayers; i++)
+     { if (i!=player_no)
+         { o.Send(sockets[i]); }
+     }
+  if (!donthash)
+    { blk_SHA1_Update(&ctx,o.get_data(),o.get_length()); }
+  sent += o.get_length() * (num_players() - 1);
 }
 
 
 void Player::receive_player(int i,octetStream& o,bool donthash) const
 {
+  TimeScope ts(timer);
   o.reset_write_head();
   o.Receive(sockets[i]);
   if (!donthash)
     { blk_SHA1_Update(&ctx,o.get_data(),o.get_length()); }
 }
 
+
+void Player::exchange(int other, octetStream& o) const
+{
+  TimeScope ts(timer);
+  o.exchange(sockets[other], sockets[other]);
+  sent += o.get_length();
+}
+
+
+void Player::pass_around(octetStream& o, int offset) const
+{
+  TimeScope ts(timer);
+  o.exchange(sockets.at((my_num() + offset) % num_players()),
+      sockets.at((my_num() + num_players() - offset) % num_players()));
+  sent += o.get_length();
+}
+
+
 /* This is deliberately weird to avoid problems with OS max buffer
  * size getting in the way
  */
 void Player::Broadcast_Receive(vector<octetStream>& o,bool donthash) const
-{ for (int i=0; i<nplayers; i++)
+{
+  TimeScope ts(timer);
+  for (int i=0; i<nplayers; i++)
      { if (i>player_no)
 	 { o[player_no].Send(sockets[i]); }
        else if (i<player_no)
@@ -257,6 +286,7 @@ void Player::Broadcast_Receive(vector<octetStream>& o,bool donthash) const
     { for (int i=0; i<nplayers; i++)
         { blk_SHA1_Update(&ctx,o[i].get_data(),o[i].get_length()); }
     }
+  sent += o[player_no].get_length() * (num_players() - 1);
 }
 
 
@@ -379,7 +409,8 @@ void ThreadPlayer::send_all(const octetStream& o,bool donthash) const
 }
 
 
-TwoPartyPlayer::TwoPartyPlayer(const Names& Nms, int other_player, int id) : PlayerBase(Nms), other_player(other_player)
+TwoPartyPlayer::TwoPartyPlayer(const Names& Nms, int other_player, int id) :
+        PlayerBase(Nms.my_num()), other_player(other_player)
 {
   is_server = Nms.my_num() > other_player;
   setup_sockets(other_player, Nms, Nms.portnum_base + other_player, id);
@@ -474,6 +505,7 @@ void TwoPartyPlayer::setup_sockets(int other_player, const Names &nms, int portN
             player_recv_key = send_recv_pair.second;
         }
     }
+    p2pcommsec = (0 != nms.keys);
 }
 
 int TwoPartyPlayer::other_player_num() const
@@ -487,11 +519,14 @@ void TwoPartyPlayer::send(octetStream& o)
     o.encrypt_sequence(&player_send_key.first[0], player_send_key.second);
     player_send_key.second++;
   }
+  TimeScope ts(timer);
   o.Send(socket);
+  sent += o.get_length();
 }
 
 void TwoPartyPlayer::receive(octetStream& o)
 {
+  TimeScope ts(timer);
   o.reset_write_head();
   o.Receive(socket);
   if(p2pcommsec) {
@@ -514,4 +549,11 @@ void TwoPartyPlayer::send_receive_player(vector<octetStream>& o)
       send(o[0]);
     }
   }
+}
+
+void TwoPartyPlayer::exchange(octetStream& o) const
+{
+  TimeScope ts(timer);
+  sent += o.get_length();
+  o.exchange(socket, socket);
 }

@@ -1,3 +1,5 @@
+// (C) 2017 University of Bristol. See License.txt
+
 #include "Tools/octetStream.h"
 #include "Networking/Player.h"
 #include <sodium.h>

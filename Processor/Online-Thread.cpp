@@ -14,7 +14,7 @@
 using namespace std;
 
 
-void* Main_Func(void* ptr)
+void* Sub_Main_Func(void* ptr)
 {
   thread_info *tinfo=(thread_info *) ptr;
   Machine& machine=*(tinfo->machine);
@@ -168,4 +168,38 @@ void* Main_Func(void* ptr)
 }
 
 
+void* Main_Func(void* ptr)
+{
+#ifndef INSECURE
+  try
+#endif
+  {
+      Sub_Main_Func(ptr);
+  }
+#ifndef INSECURE
+  catch (...)
+  {
+      thread_info* ti = (thread_info*)ptr;
+      purge_preprocessing(*ti->Nms,
+          ti->machine->prep_dir_prefix);
+      throw;
+  }
+#endif
+  return 0;
+}
 
+
+void purge_preprocessing(Names& N, string prep_dir)
+{
+  cerr << "Purging preprocessed data because something is wrong" << endl;
+  try
+  {
+      Data_Files df(N, prep_dir);
+      df.purge();
+  }
+  catch(...)
+  {
+      cerr << "Purging failed. This might be because preprocessed data is incomplete." << endl
+          << "SECURITY FAILURE; YOU ARE ON YOUR OWN NOW!" << endl;
+  }
+}

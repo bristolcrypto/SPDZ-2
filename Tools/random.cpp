@@ -2,6 +2,7 @@
 
 
 #include "Tools/random.h"
+#include "Math/bigint.h"
 #include <stdio.h>
 #include <sodium.h>
 
@@ -28,6 +29,13 @@ void PRNG::SetSeed(octet* inp)
 {
   memcpy(seed,inp,SEED_SIZE*sizeof(octet));
   InitSeed();
+}
+
+void PRNG::SetSeed(PRNG& G)
+{
+  octet tmp[SEED_SIZE];
+  G.get_octets(tmp, sizeof(tmp));
+  SetSeed(tmp);
 }
 
 void PRNG::InitSeed()
@@ -176,19 +184,38 @@ void PRNG::get_octets(octet* ans,int len)
 }
 
 
-bigint PRNG::randomBnd(const bigint& B)
+bigint PRNG::randomBnd(const bigint& B, bool positive)
 {
   bigint x;
-  // Hash the seed again and again until we have a lot of len bytes
-  int len=((2*numBytes(B))/RAND_SIZE+1)*RAND_SIZE;
-  octet *bytes=new octet[len];
-  if (cnt!=0) { next(); }
-  for (int i=0; i<len/RAND_SIZE; i++)
-     { memcpy(bytes+RAND_SIZE*i,random,RAND_SIZE*sizeof(octet));
-       next();
-     }
-  bigintFromBytes(x,bytes,len);
-  x=x%B;
-  delete[] bytes;
+#ifdef REALLOC_POLICE
+  x = B;
+#endif
+  randomBnd(x, B, positive);
   return x;
+}
+
+void PRNG::randomBnd(bigint& x, const bigint& B, bool positive)
+{
+  do
+      get_bigint(x, numBits(B), true);
+  while (x >= B);
+  if (!positive)
+    {
+      if (get_bit())
+        mpz_neg(x.get_mpz_t(), x.get_mpz_t());
+    }
+}
+
+void PRNG::get_bigint(bigint& res, int n_bits, bool positive)
+{
+  int n_bytes = (n_bits + 7) / 8;
+  if (n_bytes > 1000)
+    throw not_implemented();
+  octet bytes[1000];
+  get_octets(bytes, n_bytes);
+  octet mask = (1 << (n_bits % 8)) - 1;
+  bytes[0] &= mask;
+  bigintFromBytes(res, bytes, n_bytes);
+  if (not positive and (get_bit()))
+    mpz_neg(res.get_mpz_t(), res.get_mpz_t());
 }

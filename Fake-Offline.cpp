@@ -12,6 +12,7 @@
 #include "Processor/Data_Files.h"
 #include "Tools/mkpath.h"
 #include "Tools/ezOptionParser.h"
+#include "Tools/benchmarking.h"
 
 #include <sstream>
 #include <fstream>
@@ -291,6 +292,8 @@ void make_PreMulC(const T& key, int N, int ntrip, bool zero)
 
 int main(int argc, const char** argv)
 {
+  insecure("preprocessing");
+
   ez::ezOptionParser opt;
 
   opt.syntax = "./Fake-Offline.x <nplayers> [OPTIONS]\n\nOptions with 2 arguments take the form '-X <#gf2n tuples>,<#modp tuples>'";
@@ -496,10 +499,10 @@ int main(int argc, const char** argv)
   int tmpN = 0;
   ifstream inpf;
 
-  // create Player-Data if not there
-  if (mkdir_p("Player-Data") == -1)
+  // create PREP_DIR if not there
+  if (mkdir_p(PREP_DIR) == -1)
   {
-    cerr << "mkdir_p(Player-Data) failed\n";
+    cerr << "mkdir_p(" PREP_DIR ") failed\n";
     throw file_error();
   }
 

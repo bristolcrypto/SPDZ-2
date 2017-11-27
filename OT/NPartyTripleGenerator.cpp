@@ -222,7 +222,9 @@ void NPartyTripleGenerator::generate()
     ss << T::type_char() << "-P" << my_num;
     if (thread_num != 0)
         ss << "-" << thread_num;
-    ofstream outputFile(ss.str().c_str());
+    ofstream outputFile;
+    if (machine.output)
+        outputFile.open(ss.str().c_str());
 
     if (machine.generateBits)
     	generateBits(ot_multipliers, outputFile);
@@ -372,7 +374,7 @@ void NPartyTripleGenerator::generateTriples(vector< OTMultiplier<T>* >& ot_multi
                 preampTriples[j/nAmplify].b = b;
                 preampTriples[j/nAmplify].c[j%nAmplify] = c;
             }
-            else
+            else if (machine.output)
             {
                 timers["Writing"].start();
                 a.output(outputFile, false);
@@ -395,7 +397,7 @@ void NPartyTripleGenerator::generateTriples(vector< OTMultiplier<T>* >& ot_multi
 
                 if (machine.generateMACs)
                     amplifiedTriples[iTriple] = triple;
-                else
+                else if (machine.output)
                 {
                     timers["Writing"].start();
                     triple.output(outputFile);
@@ -419,7 +421,7 @@ void NPartyTripleGenerator::generateTriples(vector< OTMultiplier<T>* >& ot_multi
                 {
                     uncheckedTriples[iTriple].from(amplifiedTriples[iTriple], ot_multipliers, iTriple, *this);
 
-                    if (!machine.check)
+                    if (!machine.check and machine.output)
                     {
                         timers["Writing"].start();
                         amplifiedTriples[iTriple].output(outputFile);

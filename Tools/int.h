@@ -43,7 +43,7 @@ inline int FLOOR_LOG2(int x)
 }
 
 // ceil(n / k)
-inline int DIV_CEIL(long n, int k)
+inline long long DIV_CEIL(long long n, long long k)
 {
     return (n + k - 1)/k;
 }

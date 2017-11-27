@@ -61,12 +61,16 @@ class PRNG
 
    // Set seed from array
    void SetSeed(unsigned char*);
+   void SetSeed(PRNG& G);
    void InitSeed();
    
    double get_double();
+   bool get_bit() { return get_uchar() & 1; }
    unsigned char get_uchar();
    unsigned int get_uint();
-   bigint randomBnd(const bigint& B);
+   void get_bigint(bigint& res, int n_bits, bool positive = true);
+   void randomBnd(bigint& res, const bigint& B, bool positive=true);
+   bigint randomBnd(const bigint& B, bool positive=true);
    word get_word()
      { word a=get_uint();
        a<<=32; 

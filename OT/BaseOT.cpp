@@ -2,6 +2,7 @@
 
 #include "OT/BaseOT.h"
 #include "Tools/random.h"
+#include "Tools/benchmarking.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -71,7 +72,8 @@ void send_if_ot_receiver(TwoPartyPlayer* P, vector<octetStream>& os, OT_ROLE rol
 
 void BaseOT::exec_base(bool new_receiver_inputs)
 {
-    int i, j, k, len;
+    int i, j, k;
+    size_t len;
     PRNG G;
     G.ReSeed();
     vector<octetStream> os(2);
@@ -260,6 +262,7 @@ void BaseOT::check()
 
 void FakeOT::exec_base(bool new_receiver_inputs)
 {
+    insecure("base OTs");
     PRNG G;
     G.ReSeed();
     vector<octetStream> os(2);

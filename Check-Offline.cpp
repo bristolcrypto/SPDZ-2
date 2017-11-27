@@ -51,7 +51,71 @@ void check_mult_triples(const T& key,int N,vector<Data_Files*>& dataF,DataFieldT
   }
   catch (exception& e)
   {
-      cout << "Error with triples of type " << T::type_string() << endl;
+      cout << "Error after " << n << " triples of type " << T::type_string() << endl;
+  }
+}
+
+template <class T>
+void check_square(const T& a, const T& b, int n)
+{
+  T res;
+  res.mul(a, a);
+  if (!res.equal(b))
+    {
+      cout << n << ": " << b << " != " << a << "^2" << endl;
+      throw bad_value();
+    }
+}
+
+template <class T>
+void check_inverse(const T& a, const T& b, int n)
+{
+  T res;
+  res.mul(a, b);
+  if (!res.is_one())
+    {
+      cout << n << ": " << b << " != " << a << "^-1" << endl;
+      throw bad_value();
+    }
+}
+
+template<class T>
+void check_tuple(const T& a, const T& b, int n, Dtype type)
+{
+  if (type == DATA_SQUARE)
+    check_square(a, b, n);
+  else if (type == DATA_INVERSE)
+    check_inverse(a, b, n);
+  else
+    throw runtime_error("type not supported");
+}
+
+template<class T>
+void check_tuples(const T& key,int N,vector<Data_Files*>& dataF, Dtype type)
+{
+  T a,b,c,mac,res;
+  vector<Share<T> > Sa(N),Sb(N),Sc(N);
+  int n = 0;
+  DataFieldType field_type = T::field_type();
+
+  try {
+      while (!dataF[0]->eof<T>(type))
+        {
+          for (int i = 0; i < N; i++)
+            dataF[i]->get_two(field_type, type, Sa[i], Sb[i]);
+          check_share(Sa, a, mac, N, key);
+          check_share(Sb, b, mac, N, key);
+          check_tuple(a, b, n, type);
+          n++;
+        }
+
+        cout << n << " " << Data_Files::dtype_names[type] << " of type "
+                << T::type_string() << endl;
+  }
+  catch (exception& e)
+  {
+      cout << "Error after " << n << " " << Data_Files::dtype_names[type] <<
+              " of type " << T::type_string() << endl;
   }
 }
 
@@ -81,7 +145,7 @@ void check_bits(const T& key,int N,vector<Data_Files*>& dataF,DataFieldType fiel
   }
   catch (exception& e)
   {
-      cout << "Error with bits of type " << T::type_string() << endl;
+      cout << "Error after " << n << " bits of type " << T::type_string() << endl;
   }
 }
 
@@ -91,10 +155,10 @@ void check_inputs(const T& key,int N,vector<Data_Files*>& dataF)
   T a, mac, x;
   vector< Share<T> > Sa(N);
 
-  try {
-      for (int player = 0; player < N; player++)
-      {
-          int n = 0;
+  for (int player = 0; player < N; player++)
+    {
+      int n = 0;
+      try {
           while (!dataF[0]->input_eof<T>(player))
           {
               for (int i = 0; i < N; i++)
@@ -106,10 +170,11 @@ void check_inputs(const T& key,int N,vector<Data_Files*>& dataF)
           }
           cout << n << " input masks for player " << player << " of type " << T::type_string() << endl;
       }
-  }
-  catch (exception& e)
-  {
-      cout << "Error with inputs of type " << T::type_string() << endl;
+      catch (exception& e)
+      {
+          cout << "Error after " << n << " input masks of type "
+              << T::type_string() << " for player " << player << endl;
+      }
   }
 }
 
@@ -148,6 +213,15 @@ int main(int argc, const char** argv)
         "-m", // Flag token.
         "--usemont" // Flag token.
   );
+  opt.add(
+        "", // Default.
+        0, // Required?
+        1, // Number of args expected.
+        0, // Delimiter if expecting multiple args.
+        "Directory containing the data (default: " PREP_DIR "<nparties>-<lgp>-<lg2>", // Help description.
+        "-d", // Flag token.
+        "--dir" // Flag token.
+  );
   opt.parse(argc, argv);
 
   string usage;
@@ -170,7 +244,14 @@ int main(int argc, const char** argv)
       return 1;
   }
 
-  PREP_DATA_PREFIX = get_prep_dir(nparties, lgp, lg2);
+  if (opt.isSet("--dir"))
+    {
+      opt.get("--dir")->getString(PREP_DATA_PREFIX);
+      PREP_DATA_PREFIX += "/";
+    }
+  else
+    PREP_DATA_PREFIX = get_prep_dir(nparties, lgp, lg2);
+
   read_setup(PREP_DATA_PREFIX);
 
   if (!use_montgomery)
@@ -210,6 +291,10 @@ int main(int argc, const char** argv)
   check_inputs(keyp, N, dataF);
   check_bits(key2, N, dataF, DATA_GF2N);
   check_bits(keyp, N, dataF, DATA_MODP);
+  check_tuples(key2, N, dataF, DATA_SQUARE);
+  check_tuples(keyp, N, dataF, DATA_SQUARE);
+  check_tuples(key2, N, dataF, DATA_INVERSE);
+  check_tuples(keyp, N, dataF, DATA_INVERSE);
   for (int i = 0; i < N; i++)
     delete dataF[i];
 }

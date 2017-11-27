@@ -3,6 +3,7 @@
 
 #include "sockets.h"
 #include "Exceptions/Exceptions.h"
+#include "Tools/time-func.h"
 
 #include <iostream>
 using namespace std;
@@ -139,12 +140,14 @@ void set_up_client_socket(int& mysocket,const char* hostname,int Portnum)
    freeaddrinfo(ai);
 
 
+   Timer timer;
+   timer.start();
    do
    {  fl=1;
       while (fl==1 || errno==EINPROGRESS)
        { fl=connect(mysocket, (struct sockaddr *)&dest, sizeof(struct sockaddr)); }
    }
-   while (fl==-1 && errno==ECONNREFUSED);
+   while (fl==-1 && errno==ECONNREFUSED && timer.elapsed() < 60);
    if (fl<0) { error("set_up_socket:connect:",hostname);  }
 }
 
@@ -179,6 +182,22 @@ void receive(int socket,int& a)
       if (i<0) { error("Receiving error - 2"); }
     }
   a=msg[0];
+}
+
+
+void send(int socket, size_t a, size_t len)
+{
+  octet blen[len];
+  encode_length(blen, a, len);
+  send(socket, blen, len);
+}
+
+
+void receive(int socket, size_t& a, size_t len)
+{
+  octet blen[len];
+  receive(socket, blen, len);
+  a = decode_length(blen, len);
 }
 
 

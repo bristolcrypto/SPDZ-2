@@ -14,7 +14,7 @@ bool modp::rewind = false;
 void modp::randomize(PRNG& G, const Zp_Data& ZpD)
 {
   bigint x=G.randomBnd(ZpD.pr);
-  to_modp(*this,x,ZpD);
+  memcpy(this->x, x.get_mpz_t()->_mp_d, ZpD.get_t());
 }
 
 void modp::pack(octetStream& o,const Zp_Data& ZpD) const
@@ -26,12 +26,6 @@ void modp::pack(octetStream& o,const Zp_Data& ZpD) const
 void modp::unpack(octetStream& o,const Zp_Data& ZpD)
 {
   o.consume((octet*) x,ZpD.t*sizeof(mp_limb_t));
-}
-
-
-void Sub(modp& ans,const modp& x,const modp& y,const Zp_Data& ZpD)
-{
-    ZpD.Sub(ans.x, x.x, y.x);
 }
 
 
@@ -65,7 +59,7 @@ bool isZero(const modp& ans,const Zp_Data& ZpD)
 
 void assignOne(modp& x,const Zp_Data& ZpD)
 { if (ZpD.montgomery)
-    { mpn_copyi(x.x,ZpD.R,ZpD.t+1); }  
+    { mpn_copyi(x.x,ZpD.R,ZpD.t); }
   else
     { assignZero(x,ZpD); 
       x.x[0]=1; 
@@ -91,29 +85,27 @@ bool isOne(const modp& x,const Zp_Data& ZpD)
 
 void to_bigint(bigint& ans,const modp& x,const Zp_Data& ZpD,bool reduce)
 { 
-  mpz_t a;
-  mpz_init2(a,MAX_MOD_SZ*sizeof(mp_limb_t)*8);
+  mpz_ptr a = ans.get_mpz_t();
+  if (a->_mp_alloc < ZpD.t)
+      mpz_realloc(a, ZpD.t);
   if (ZpD.montgomery)
     { mp_limb_t one[MAX_MOD_SZ];
-      mpn_zero(one,ZpD.t+1);
+      inline_mpn_zero(one,ZpD.t);
       one[0]=1;
       ZpD.Mont_Mult(a->_mp_d,x.x,one);
     }
   else
-    { mpn_copyi(a->_mp_d,x.x,ZpD.t+1); }
+    { inline_mpn_copyi(a->_mp_d,x.x,ZpD.t); }
   a->_mp_size=ZpD.t;
   if (reduce)
     while (a->_mp_size>=1 && (a->_mp_d)[a->_mp_size-1]==0)
       { a->_mp_size--; }
-  ans=bigint(a);
-
-  mpz_clear(a);
 }
 
 
 void to_modp(modp& ans,int x,const Zp_Data& ZpD)
 {
-  mpn_zero(ans.x,ZpD.t+1);
+  inline_mpn_zero(ans.x,ZpD.t);
   if (x>=0)
     { ans.x[0]=x;
       if (ZpD.t==1) { ans.x[0]=ans.x[0]%ZpD.prA[0]; }
@@ -134,28 +126,23 @@ void to_modp(modp& ans,int x,const Zp_Data& ZpD)
 
 void to_modp(modp& ans,const bigint& x,const Zp_Data& ZpD)
 {
-  bigint xx=x%ZpD.pr;
+  bigint xx(x);
+  ans.convert_destroy(xx, ZpD);
+}
+
+
+void modp::convert_destroy(bigint& xx,
+    const Zp_Data& ZpD)
+{
+  xx %= ZpD.pr;
   if (xx<0) { xx+=ZpD.pr; }
   //mpz_mod(xx.get_mpz_t(),x.get_mpz_t(),ZpD.pr.get_mpz_t());
-  mpn_zero(ans.x,ZpD.t+1);
-  mpn_copyi(ans.x,xx.get_mpz_t()->_mp_d,xx.get_mpz_t()->_mp_size);
+  inline_mpn_zero(x, ZpD.t);
+  inline_mpn_copyi(x, xx.get_mpz_t()->_mp_d, xx.get_mpz_t()->_mp_size);
   if (ZpD.montgomery)
-    { ZpD.Mont_Mult(ans.x,ans.x,ZpD.R2); }
+    ZpD.Mont_Mult(x, x, ZpD.R2);
 }
 
-
-
-void Mul(modp& ans,const modp& x,const modp& y,const Zp_Data& ZpD)
-{ 
-  if (ZpD.montgomery)  
-    { ZpD.Mont_Mult(ans.x,x.x,y.x); }
-  else
-    { //ans.x=(x.x*y.x)%ZpD.pr;
-      mp_limb_t aa[2*MAX_MOD_SZ],q[2*MAX_MOD_SZ];
-      mpn_mul_n(aa,x.x,y.x,ZpD.t);
-      mpn_tdiv_qr(q,ans.x,0,aa,2*ZpD.t,ZpD.prA,ZpD.t);     
-    }
-}
 
 
 void Sqr(modp& ans,const modp& x,const Zp_Data& ZpD)
@@ -173,7 +160,7 @@ void Sqr(modp& ans,const modp& x,const Zp_Data& ZpD)
 
 void Inv(modp& ans,const modp& x,const Zp_Data& ZpD)
 { 
-  mp_limb_t g[MAX_MOD_SZ],xx[MAX_MOD_SZ+1],yy[MAX_MOD_SZ+1];
+  mp_limb_t g[MAX_MOD_SZ],xx[MAX_MOD_SZ],yy[MAX_MOD_SZ];
   mp_size_t sz;
   mpn_copyi(xx,x.x,ZpD.t);
   mpn_copyi(yy,ZpD.prA,ZpD.t);
@@ -243,12 +230,7 @@ void modp::input(istream& s,const Zp_Data& ZpD,bool human)
         { cout << "IO problem. Empty file?" << endl;
           throw file_error();
         }
-      //throw end_of_file();
-      s.clear(); // unset EOF flag
-      s.seekg(0);
-      if (!rewind)
-        cout << "REWINDING - ONLY FOR BENCHMARKING" << endl;
-      rewind = true;
+      throw end_of_file("modp");
     }
 
   if (human)

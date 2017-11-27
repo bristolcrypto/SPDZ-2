@@ -6,7 +6,6 @@
 
 #include <iomanip>
 
-const char* Data_Files::dtype_names[N_DTYPE] = { "Triples", "Squares", "Bits", "Inverses", "BitTriples", "BitGF2NTriples" };
 const char* Data_Files::field_names[] = { "p", "2" };
 const char* Data_Files::long_field_names[] = { "gfp", "gf2n" };
 const bool Data_Files::implemented[N_DATA_FIELD_TYPE][N_DTYPE] = {
@@ -83,7 +82,7 @@ int Data_Files::share_length(int field_type)
     case DATA_MODP:
       return 2 * gfp::t() * sizeof(mp_limb_t);
     case DATA_GF2N:
-      return 2 * sizeof(word);
+      return Share<gf2n>::size();
     default:
       throw invalid_params();
   }
@@ -173,6 +172,28 @@ void Data_Files::skip(const DataPositions& pos)
   DataPositions new_pos = usage;
   new_pos.increase(pos);
   seekg(new_pos);
+}
+
+void Data_Files::prune()
+{
+  for (auto& buffer : buffers)
+    buffer.prune();
+  my_input_buffers.prune();
+  for (int j = 0; j < num_players; j++)
+    input_buffers[j].prune();
+  for (auto it : extended)
+    it.second.prune();
+}
+
+void Data_Files::purge()
+{
+  for (auto& buffer : buffers)
+    buffer.purge();
+  my_input_buffers.purge();
+  for (int j = 0; j < num_players; j++)
+    input_buffers[j].purge();
+  for (auto it : extended)
+    it.second.purge();
 }
 
 void Data_Files::setup_extended(DataFieldType field_type, const DataTag& tag, int tuple_size)

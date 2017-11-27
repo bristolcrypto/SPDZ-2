@@ -22,7 +22,7 @@ void* accept_thread(void* server_socket)
   return 0;
 }
 
-ServerSocket::ServerSocket(int Portnum) : portnum(Portnum)
+ServerSocket::ServerSocket(int Portnum) : portnum(Portnum), thread(0)
 {
   struct sockaddr_in serv; /* socket info about our server */
 
@@ -120,7 +120,10 @@ int ServerSocket::get_connection_socket(int id)
     }
 
   while (clients.find(id) == clients.end())
-      data_signal.wait();
+  {
+      if (data_signal.wait(60) == ETIMEDOUT)
+          throw runtime_error("No client after one minute");
+  }
 
   int client_socket = clients[id];
   used.insert(id);

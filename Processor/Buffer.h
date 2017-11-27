@@ -28,16 +28,23 @@ protected:
     ifstream* file;
     int next;
     const char* data_type;
+    const char* field_type;
     Timer timer;
     int tuple_length;
+    string filename;
 
 public:
     bool eof;
 
-    BufferBase() : file(0), next(BUFFER_SIZE), data_type(0), tuple_length(-1), eof(false) {};
-    void setup(ifstream* f, int length, const char* type = 0);
+    BufferBase() : file(0), next(BUFFER_SIZE), data_type(0), field_type(0),
+            tuple_length(-1), eof(false) {}
+    void setup(ifstream* f, int length, string filename, const char* type = 0,
+            const char* field = 0);
     void seekg(int pos);
     bool is_up() { return file != 0; }
+    void try_rewind();
+    void prune();
+    void purge();
 };
 
 
@@ -69,6 +76,8 @@ public:
     BufferBase& get_buffer(DataFieldType field_type);
     void setup(DataFieldType field_type, string filename, int tuple_length, const char* data_type = 0);
     void close();
+    void prune();
+    void purge();
 };
 
 #endif /* PROCESSOR_BUFFER_H_ */

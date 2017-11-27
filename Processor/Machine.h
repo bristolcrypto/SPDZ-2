@@ -45,7 +45,7 @@ class Machine : public BaseMachine
   vector<pthread_t> threads;
 
   int my_number;
-  Names N;
+  Names& N;
   gfp  alphapi;
   gf2n alpha2i;
 
@@ -82,9 +82,9 @@ class Machine : public BaseMachine
   bool receive_threads;
   int max_broadcast;
 
-  Machine(int my_number, int PortnumBase, string hostname, string progname,
+  Machine(int my_number, Names& playerNames, string progname,
       string memtype, int lgp, int lg2, bool direct, int opening_sum, bool parallel,
-      bool receive_threads, int max_broadcast, CommsecKeysPackage *keys);
+      bool receive_threads, int max_broadcast);
 
   DataPositions run_tape(int thread_number, int tape_number, int arg, int line_number);
   void join_tape(int thread_number);

@@ -45,11 +45,17 @@ void SPDZ_Data_Setup_Primes(bigint& p,int lgp,int& idx,int& m)
         idx=4;
         break;
       default:
-        throw invalid_params();
+        m=1;
+        idx=0;
+        cout << "no precomputed parameters, trying anyway" << endl;
         break;
     }
   cout << "m = " << m << endl;
+  generate_prime(p, lgp, m);
+}
 
+void generate_prime(bigint& p, int lgp, int m)
+{
   // Here we choose a prime which is the order of a BN curve
   //    - Reason is that there are some applications where this
   //      would be a good idea. So I have hard coded it in here
@@ -86,7 +92,11 @@ void generate_online_setup(ofstream& outf, string dirname, bigint& p, int lgp, i
 {
   int idx, m;
   SPDZ_Data_Setup_Primes(p, lgp, idx, m);
+  write_online_setup(outf, dirname, p, lg2);
+}
 
+void write_online_setup(ofstream& outf, string dirname, const bigint& p, int lg2)
+{
   stringstream ss;
   ss << dirname;
   cout << "Writing to file in " << ss.str() << endl;
@@ -130,7 +140,7 @@ void read_setup(const string& dir_prefix)
 
   // backwards compatibility hack
   if (dir_prefix.compare("") == 0)
-    filename = string("Player-Data/Params-Data");
+    filename = string(PREP_DIR "Params-Data");
 
   ifstream inpf(filename.c_str());
   if (inpf.fail()) { throw file_error(filename.c_str()); }

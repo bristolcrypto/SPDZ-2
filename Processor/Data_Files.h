@@ -14,6 +14,7 @@
 #include "Processor/Buffer.h"
 #include "Processor/InputTuple.h"
 #include "Tools/Lock.h"
+#include "Networking/Player.h"
 
 #include <fstream>
 #include <map>
@@ -87,11 +88,16 @@ class Data_Files
   static int tuple_length(int field_type, int dtype);
 
   Data_Files(int my_num,int n,const string& prep_data_dir);
+  Data_Files(Names& N, const string& prep_data_dir) :
+      Data_Files(N.my_num(), N.num_players(), prep_data_dir) {}
   ~Data_Files();
 
   DataPositions tellg();
   void seekg(DataPositions& pos);
   void skip(const DataPositions& pos);
+  void prune();
+  void purge();
+
   template<class T>
   bool eof(Dtype dtype);
   template<class T>

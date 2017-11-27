@@ -6,6 +6,7 @@
 #include <exception>
 #include <string>
 #include <sstream>
+#include <stdexcept>
 using namespace std;
 
 class not_implemented: public exception
@@ -40,9 +41,10 @@ class level_mismatch: public exception
     { virtual const char* what() const throw()
         { return "Level mismatch"; }
     };
-class invalid_length: public exception
-    { virtual const char* what() const throw()
-        { return "Invalid length"; }
+class invalid_length: public runtime_error
+    {
+    public:
+      invalid_length(string msg = "") : runtime_error("Invalid length: " + msg) {}
     };
 class invalid_commitment: public exception
     { virtual const char* what() const throw()
@@ -65,15 +67,10 @@ class broadcast_invalid: public exception
     { virtual const char* what() const throw()
         { return "Inconsistent broadcast at some point"; }
     };
-class bad_keygen: public exception
-    { string msg;
+class bad_keygen: public runtime_error
+    {
       public:
-      bad_keygen(string m) : msg(m) {}
-      ~bad_keygen()throw() { }
-      virtual const char* what() const throw()
-          { string ans="KeyGen has gone wrong: "+msg; 
-            return ans.c_str();
-          }
+      bad_keygen(string m) : runtime_error("KeyGen has gone wrong: "+m) {}
     };
 class bad_enccommit:  public exception
     { virtual const char* what() const throw()
@@ -87,16 +84,11 @@ class bad_value: public exception
     { virtual const char* what() const throw()
         { return "Some value is wrong somewhere"; }
     };
-class Offline_Check_Error: public exception
-    { string msg;
+class Offline_Check_Error: public runtime_error
+    {
       public:
-      Offline_Check_Error(string m) : msg(m) {}
-      ~Offline_Check_Error()throw() { }
-      virtual const char* what() const throw()
-        { string ans="Offline-Check-Error : ";
-          ans+=msg;
-          return ans.c_str();
-        }
+      Offline_Check_Error(string m) :
+          runtime_error("Offline-Check-Error : " + m) {}
     };
 class mac_fail:  public exception
     { virtual const char* what() const throw()
@@ -173,16 +165,20 @@ class Invalid_Instruction : public Processor_Error
       Invalid_Instruction(string m) : Processor_Error(m) {}
     };
 class max_mod_sz_too_small : public exception
-    { int len;
+    {
+      string msg;
       public:
-      max_mod_sz_too_small(int len) : len(len) {}
-      ~max_mod_sz_too_small() throw() {}
-      virtual const char* what() const throw()
+      max_mod_sz_too_small(int len)
         { stringstream out;
           out << "MAX_MOD_SZ too small for desired bit length of p, "
-                  << "must be at least ceil(len(p)/len(word))+1, "
+                  << "must be at least ceil(len(p)/len(word)), "
                   << "in this case: " << len;
-          return out.str().c_str();
+          msg = out.str();
+        }
+      ~max_mod_sz_too_small() throw() {}
+      virtual const char* what() const throw()
+        {
+          return msg.c_str();
         }
     };
 class crash_requested: public exception

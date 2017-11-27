@@ -15,17 +15,13 @@
 #include <pthread.h>
 using namespace std;
 
-Machine::Machine(int my_number, int PortnumBase, string hostname,
+Machine::Machine(int my_number, Names& playerNames,
     string progname_str, string memtype, int lgp, int lg2, bool direct,
-    int opening_sum, bool parallel, bool receive_threads, int max_broadcast,
-    CommsecKeysPackage *commsec_keys)
-  : my_number(my_number), nthreads(0), tn(0), numt(0), usage_unknown(false),
+    int opening_sum, bool parallel, bool receive_threads, int max_broadcast)
+  : my_number(my_number), N(playerNames), nthreads(0), tn(0), numt(0), usage_unknown(false),
     progname(progname_str), direct(direct), opening_sum(opening_sum), parallel(parallel),
     receive_threads(receive_threads), max_broadcast(max_broadcast)
 {
-  N.init(my_number,PortnumBase,hostname.c_str());
-  N.set_keys(commsec_keys);
-
   if (opening_sum < 2)
     this->opening_sum = N.num_players();
   if (max_broadcast < 2)
@@ -61,7 +57,7 @@ Machine::Machine(int my_number, int PortnumBase, string hostname,
 
   // Initialize the global memory
   if (memtype.compare("new")==0)
-     {sprintf(filename, "Player-Data/Player-Memory-P%d", my_number);
+     {sprintf(filename, PREP_DIR "Player-Memory-P%d", my_number);
        ifstream memfile(filename);
        if (memfile.fail()) { throw file_error(filename); }
        Load_Memory(M2,memfile); 
@@ -71,7 +67,7 @@ Machine::Machine(int my_number, int PortnumBase, string hostname,
      }
   else if (memtype.compare("old")==0)
      {
-       sprintf(filename, "Player-Data/Memory-P%d", my_number);
+       sprintf(filename, PREP_DIR "Memory-P%d", my_number);
        inpf.open(filename,ios::in | ios::binary);
        if (inpf.fail()) { throw file_error(); }
        inpf >> M2 >> Mp >> Mi;
@@ -303,7 +299,7 @@ void Machine::run()
 
   // Write out the memory to use next time
   char filename[1024];
-  sprintf(filename,"Player-Data/Memory-P%d",my_number);
+  sprintf(filename,PREP_DIR "Memory-P%d",my_number);
   ofstream outf(filename,ios::out | ios::binary);
   outf << M2 << Mp << Mi;
   outf.close();
@@ -331,6 +327,12 @@ void Machine::run()
 
   cerr << "Total cost of program:" << endl;
   pos.print_cost();
+
+#ifndef INSECURE
+  Data_Files df(N.my_num(), N.num_players(), prep_dir_prefix);
+  df.seekg(pos);
+  df.prune();
+#endif
 
   cerr << "End of prog" << endl;
 }

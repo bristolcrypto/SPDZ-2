@@ -334,12 +334,7 @@ void gf2n_short::input(istream& s,bool human)
         { cout << "IO problem. Empty file?" << endl;
           throw file_error();
         }
-      //throw end_of_file();
-      s.clear(); // unset EOF flag
-      s.seekg(0);
-      if (!rewind)
-        cout << "REWINDING - ONLY FOR BENCHMARKING" << endl;
-      rewind = true;
+      throw end_of_file("gf2n_short");
     }
 
   if (human)

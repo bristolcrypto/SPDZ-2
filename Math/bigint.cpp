@@ -2,6 +2,7 @@
 
 
 #include "bigint.h"
+#include "gfp.h"
 #include "Exceptions/Exceptions.h"
 
 
@@ -95,3 +96,44 @@ int powerMod(int x,int e,int p)
 }
 
 
+bigint::bigint(const gfp& x)
+{
+  to_bigint(*this, x);
+}
+
+
+size_t bigint::report_size(ReportType type)
+{
+  size_t res = 0;
+  if (type != MINIMAL)
+    res += sizeof(*this);
+  if (type == CAPACITY)
+    res += get_mpz_t()->_mp_alloc * sizeof(mp_limb_t);
+  else if (type == USED)
+    res += abs(get_mpz_t()->_mp_size) * sizeof(mp_limb_t);
+  else if (type == MINIMAL)
+    res += 5 + numBytes(*this);
+  return res;
+}
+
+template <>
+int limb_size<bigint>()
+{
+  return 64;
+}
+
+template <>
+int limb_size<int>()
+{
+  // doesn't matter
+  return 0;
+}
+
+#ifdef REALLOC_POLICE
+void bigint::lottery()
+{
+  if (rand() % 1000 == 0)
+    if (rand() % 1000 == 0)
+      throw runtime_error("much deallocation");
+}
+#endif

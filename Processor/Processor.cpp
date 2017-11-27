@@ -20,9 +20,9 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
   reset(program,0);
 
   public_input.open(get_filename("Programs/Public-Input/",false).c_str());
-  private_input.open(get_filename("Player-Data/Private-Input-",true).c_str());
-  public_output.open(get_filename("Player-Data/Public-Output-",true).c_str(), ios_base::out);
-  private_output.open(get_filename("Player-Data/Private-Output-",true).c_str(), ios_base::out);
+  private_input.open(get_filename(PREP_DIR "Private-Input-",true).c_str());
+  public_output.open(get_filename(PREP_DIR "Public-Output-",true).c_str(), ios_base::out);
+  private_output.open(get_filename(PREP_DIR "Private-Output-",true).c_str(), ios_base::out);
 }
 
 

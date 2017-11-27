@@ -1,5 +1,6 @@
 # Offline data, runtime logs #
 ##############################
+Player-Data
 Player-Data/*
 Prep-Data/*
 logs/*

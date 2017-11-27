@@ -37,5 +37,7 @@ class thread_info
 
 void* Main_Func(void *ptr);
 
+void purge_preprocessing(Names& N, string prep_dir);
+
 #endif
 

@@ -330,6 +330,8 @@ class Program(object):
     
     def malloc(self, size, mem_type, reg_type=None):
         """ Allocate memory from the top """
+        if not isinstance(size, (int, long)):
+            raise CompilerError('size must be known at compile time')
         if size == 0:
             return
         if isinstance(mem_type, type):

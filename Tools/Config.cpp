@@ -1,3 +1,5 @@
+// (C) 2017 University of Bristol. See License.txt
+
 // Client key file format:
 //      X25519  Public Key
 //      X25519  Secret Key

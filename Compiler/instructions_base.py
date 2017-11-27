@@ -420,7 +420,7 @@ class PlayerNoAF(IntArgFormat):
             raise ArgumentError(arg, 'Player number > 256')
 
 class String(ArgFormat):
-    length = 12
+    length = 16
 
     @classmethod
     def check(cls, arg):

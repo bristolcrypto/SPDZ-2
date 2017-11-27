@@ -9,10 +9,69 @@ using namespace std;
 #include <stddef.h>
 #include <mpirxx.h>
 
-typedef mpz_class bigint;
-
 #include "Exceptions/Exceptions.h"
 #include "Tools/int.h"
+#include "Tools/random.h"
+#include "Tools/octetStream.h"
+#include "Tools/avx_memcpy.h"
+
+enum ReportType
+{
+  CAPACITY,
+  USED,
+  MINIMAL,
+  REPORT_TYPE_MAX
+};
+
+class gfp;
+
+class bigint : public mpz_class
+{
+public:
+  bigint() : mpz_class() {}
+  template <class T>
+  bigint(const T& x) : mpz_class(x) {}
+  bigint(const gfp& x);
+
+  void allocate_slots(const bigint& x) { *this = x; }
+  int get_min_alloc() { return get_mpz_t()->_mp_alloc; }
+
+  void negate() { mpz_neg(get_mpz_t(), get_mpz_t()); }
+
+#ifdef REALLOC_POLICE
+  ~bigint() { lottery(); }
+  void lottery();
+
+  bigint& operator-=(const bigint& y)
+  {
+    if (rand() % 10000 == 0)
+      if (get_mpz_t()->_mp_alloc < abs(y.get_mpz_t()->_mp_size) + 1)
+        throw runtime_error("insufficient allocation");
+    ((mpz_class&)*this) -= y;
+    return *this;
+  }
+  bigint& operator+=(const bigint& y)
+  {
+    if (rand() % 10000 == 0)
+      if (get_mpz_t()->_mp_alloc < abs(y.get_mpz_t()->_mp_size) + 1)
+        throw runtime_error("insufficient allocation");
+    ((mpz_class&)*this) += y;
+    return *this;
+  }
+#endif
+
+  int numBits() const
+  { return mpz_sizeinbase(get_mpz_t(), 2); }
+
+  void generateUniform(PRNG& G, int n_bits, bool positive = false)
+  { G.get_bigint(*this, n_bits, positive); }
+
+  void pack(octetStream& os) const { os.store(*this); }
+  void unpack(octetStream& os)     { os.get(*this); };
+
+  size_t report_size(ReportType type);
+};
+
 
 /**********************************
  *       Utility Functions        *
@@ -40,12 +99,12 @@ inline void invMod(bigint& ans,const bigint& x,const bigint& p)
 
 inline int numBits(const bigint& m)
 {
-  return mpz_sizeinbase(m.get_mpz_t(),2);
+  return m.numBits();
 }
 
 
 
-inline int numBits(int m)
+inline int numBits(long m)
 {
   bigint te=m;
   return mpz_sizeinbase(te.get_mpz_t(),2);
@@ -74,6 +133,11 @@ inline int probPrime(const bigint& x)
 
 inline void bigintFromBytes(bigint& x,octet* bytes,int len)
 {
+#ifdef REALLOC_POLICE
+  if (rand() % 10000 == 0)
+    if (x.get_mpz_t()->_mp_alloc < ((len + 7) / 8))
+      throw runtime_error("insufficient allocation");
+#endif
   mpz_import(x.get_mpz_t(),len,1,sizeof(octet),0,0,bytes);
 }
 
@@ -111,6 +175,19 @@ inline int Hwt(int N)
     }
   return result;
 }
+
+inline void inline_mpn_zero(mp_limb_t* x, mp_size_t size)
+{
+  avx_memzero(x, size * sizeof(mp_limb_t));
+}
+
+inline void inline_mpn_copyi(mp_limb_t* dest, const mp_limb_t* src, mp_size_t size)
+{
+  avx_memcpy(dest, src, size * sizeof(mp_limb_t));
+}
+
+template <class T>
+int limb_size();
 
 #endif
 

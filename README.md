@@ -6,12 +6,19 @@ a basic tutorial.
 
 See also https://www.cs.bris.ac.uk/Research/CryptographySecurity/SPDZ
 
+#### Preface:
+
+The software contains some functionality for benchmarking that breaks security. This is deactivated by default. See the compilation section on how to activate it if needed.
+
+In particular, the online phase will discard preprocessed data and crash when it runs out if not in benchmarking mode. In benchmarking mode, it will reuse preprocessed data.
+
 #### Requirements:
  - GCC
  - MPIR library, compiled with C++ support (use flag --enable-cxx when running configure)
  - libsodium library, tested against 1.0.11
  - CPU supporting AES-NI and PCLMUL
  - Python 2.x, ideally with `gmpy` package (for testing)
+ - NTL library for the SPDZ-2 offline phase (optional; tested with NTL 9.10)
 
 #### OS X:
  - `g++` might actually refer to clang, in which case you need to change `CONFIG` to use GCC instead.
@@ -20,13 +27,17 @@ See also https://www.cs.bris.ac.uk/Research/CryptographySecurity/SPDZ
 
 #### To compile SPDZ:
 
-1) Optionally, edit CONFIG and CONFIG.mine so that the following variables point to the right locations:
- - PREP_DIR: this should be a local, unversioned directory to store preprocessing data (defaults to Player-Data in the working directory)
+1) Edit `CONFIG` or `CONFIG.mine` to your needs:
 
-2) Run make (use the flag -j for faster compilation with multiple threads)
+ - To benchmark only the online phase (skipping the secure offline phase), add the following line at the top: `MY_CFLAGS = -DINSECURE`
+ - `PREP_DIR` should point to should be a local, unversioned directory to store preprocessing data (default is `Player-Data` in the current directory).
+ - For the SPDZ-2 offline phase, set `USE_NTL = 1` and `MOD = -DMAX_MOD_SZ=6`.
 
+2) Run make (use the flag -j for faster compilation multiple threads). Remember to run `make clean` first after changing `CONFIG` or `CONFIG.mine`.
 
-#### To setup for the online phase
+#### To setup for benchmarking the online phase
+
+This requires the INSECURE flag to be set before compilation as explained above. For a secure offline phase, see the section on SPDZ-2 below.
 
 Run:
 
@@ -70,9 +81,9 @@ copied across to the second machine (or shared using sshfs), and secondly, Playe
 needs to be passed the machine where Server.x is running.
 e.g. if this machine is name `diffie` on the local network:
 
-`./Player-Online.x -pn 5000 -h diffie 0 tutorial`
+`./Player-Online.x -pn 5000 -h diffie 0 test_all`
 
-`./Player-Online.x -pn 5000 -h diffie 1 tutorial`
+`./Player-Online.x -pn 5000 -h diffie 1 test_all`
 
 #### Compiling and running programs from external directories
 
@@ -93,7 +104,27 @@ Player-Data Programs
 $ ../spdz/Scripts/run-online.sh test
 ```
 
-#### Offline phase (MASCOT)
+#### SPDZ-2 offline phase
+
+This implementation is suitable to generate the preprocessed data used in the online phase.
+
+For quick run on one machine, you can call the following:
+
+`./spdz2-offline.x -p 0 & ./spdz-offline.x -p 1`
+
+More generally, run the following on every machine:
+
+`./spdz2-offline.x -p <number of party> -N <total number of parties> -h <hostname of party 0> -c <covert security parameter>`
+
+The number of parties are counted from 0. As seen in the quick example, you can omit the total number of parties if it is 2 and the hostname if all parties run on the same machine. Invoke `./spdz2-offline.x` for more explanation on the options.
+
+SPDZ-2 provides covert security according to some parameter c (at least 2). A malicious adversary will get caught with probability 1/c. There is a linear correlation between c and the running time, that is, running with 2c takes twice as long as running with c. The default for c is 10.
+
+The program will generate every kind of randomness required by the online phase until you stop it. You can shut it down gracefully pressing Ctrl-c (or sending the interrupt signal `SIGINT`).
+
+#### Benchmarking the MASCOT offline phase
+
+The MASCOT implementation is not suitable to generate the preprocessed data for the online phase because it can only generate either multiplication triples or bits. Nevertheless, an online computation only using data of one kind can run from the output of MASCOT offline phase if `Player-Online.x` is run with the options `-lg2 128 -lgp 128`.
 
 In order to compile the MASCOT code, the following must be set in CONFIG or CONFIG.mine:
 

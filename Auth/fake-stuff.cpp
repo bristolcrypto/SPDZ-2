@@ -4,18 +4,22 @@
 #include "Math/gf2n.h"
 #include "Math/gfp.h"
 #include "Math/Share.h"
+#include "Auth/fake-stuff.h"
+#include "Tools/benchmarking.h"
 
 #include <fstream>
 
 template<class T>
 void make_share(vector<Share<T> >& Sa,const T& a,int N,const T& key,PRNG& G)
 {
+  insecure("share generation", false);
   T mac,x,y;
   mac.mul(a,key);
   Share<T> S;
   S.set_share(a);
   S.set_mac(mac);
 
+  Sa.resize(N);
   for (int i=0; i<N-1; i++)
     { x.randomize(G);
       y.randomize(G);
@@ -117,23 +121,30 @@ void generate_keys(const string& directory, int nplayers)
   mac2.assign_zero();
   macp.assign_zero();
 
-  ofstream outf;
-
   for (int i = 0; i < nplayers; i++)
   {
-    stringstream filename;
-    filename << directory << "Player-MAC-Keys-P" << i;
     mac2.randomize(G);
     macp.randomize(G);
-    cout << "Writing to " << filename.str().c_str() << endl;
-    outf.open(filename.str().c_str());
-    outf << nplayers << endl;
-    macp.output(outf,true);
-    outf << " ";
-    mac2.output(outf,true);
-    outf << endl;
-    outf.close();
+    write_mac_keys(directory, i, nplayers, macp, mac2);
   }
+}
+
+template <class T>
+void write_mac_keys(const string& directory, int i, int nplayers, gfp macp, T mac2)
+{
+  ofstream outf;
+  stringstream filename;
+  if (directory.size())
+    filename << directory << "/";
+  filename << "Player-MAC-Keys-P" << i;
+  cout << "Writing to " << filename.str().c_str() << endl;
+  outf.open(filename.str().c_str());
+  outf << nplayers << endl;
+  macp.output(outf,true);
+  outf << " ";
+  mac2.output(outf,true);
+  outf << endl;
+  outf.close();
 }
 
 void read_keys(const string& directory, gfp& keyp, gf2n& key2, int nplayers)
@@ -169,3 +180,6 @@ void read_keys(const string& directory, gfp& keyp, gf2n& key2, int nplayers)
     }
     std::cout << "Final MAC keys :\t p: " << keyp << "\n\t\t 2: " << key2 << std::endl;
 }
+
+template void write_mac_keys(const string& directory, int i, int nplayers, gfp macp, gf2n_short mac2);
+template void write_mac_keys(const string& directory, int i, int nplayers, gfp macp, gf2n_long mac2);

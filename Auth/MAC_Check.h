@@ -27,7 +27,38 @@ using namespace std;
 
 
 template<class T>
-class MAC_Check
+class TreeSum
+{
+protected:
+  int base_player;
+  int opening_sum;
+  int max_broadcast;
+  octetStream os;
+
+  void ReceiveValues(vector<T>& values, const Player& P, int sender);
+  virtual void AddToValues(vector<T>& values) { (void)values; }
+  virtual void GetValues(vector<T>& values) { (void)values; }
+
+public:
+  vector<octetStream> oss;
+  vector<Timer> timers;
+  vector<Timer> player_timers;
+
+  TreeSum(int opening_sum = 10, int max_broadcast = 10, int base_player = 0);
+  virtual ~TreeSum();
+
+  void start(vector<T>& values, const Player& P);
+  void finish(vector<T>& values, const Player& P);
+  void run(vector<T>& values, const Player& P);
+
+  octetStream& get_buffer() { return os; }
+
+  size_t report_size(ReportType type);
+};
+
+
+template<class T>
+class MAC_Check : public TreeSum<T>
 {
   protected:
 
@@ -35,17 +66,12 @@ class MAC_Check
   int popen_cnt;
   vector<T> macs;
   vector<T> vals;
-  int base_player;
-  int opening_sum;
-  int max_broadcast;
-  octetStream os;
 
   /* MAC Share */
   T alphai;
 
   void AddToMacs(const vector< Share<T> >& shares);
   void AddToValues(vector<T>& values);
-  void ReceiveValues(vector<T>& values, const Player& P, int sender);
   void GetValues(vector<T>& values);
   void CheckIfNeeded(const Player& P);
   int WaitingForCheck()
@@ -54,9 +80,6 @@ class MAC_Check
   public:
 
   int values_opened;
-  vector<Timer> timers;
-  vector<Timer> player_timers;
-  vector<octetStream> oss;
 
   MAC_Check(const T& ai, int opening_sum=10, int max_broadcast=10, int send_player=0);
   virtual ~MAC_Check();
@@ -80,7 +103,7 @@ class MAC_Check
 
 
 template<class T, int t>
-  void add_openings(vector<T>& values, const Player& P, int sum_players, int last_sum_players, int send_player, MAC_Check<T>& MC);
+  void add_openings(vector<T>& values, const Player& P, int sum_players, int last_sum_players, int send_player, TreeSum<T>& MC);
 
 
 template<class T>
@@ -137,5 +160,177 @@ public:
   void POpen_Begin(vector<T>& values,const vector<Share<T> >& S,const Player& P);
   void POpen_End(vector<T>& values,const vector<Share<T> >& S,const Player& P);
 };
+
+
+enum mc_timer { SEND, RECV_ADD, BCAST, RECV_SUM, SEED, COMMIT, WAIT_SUMMER, RECV, SUM, SELECT, MAX_TIMER };
+
+template<class T>
+TreeSum<T>::TreeSum(int opening_sum, int max_broadcast, int base_player) :
+    base_player(base_player), opening_sum(opening_sum), max_broadcast(max_broadcast)
+{
+  timers.resize(MAX_TIMER);
+}
+
+template<class T>
+TreeSum<T>::~TreeSum()
+{
+#ifdef TREESUM_TIMINGS
+  for (unsigned int i = 0; i < timers.size(); i++)
+    if (timers[i].elapsed() > 0)
+      cerr << T::type_string() << " " << mc_timer_names[i] << ": "
+        << timers[i].elapsed() << endl;
+
+  for (unsigned int i = 0; i < player_timers.size(); i++)
+    if (player_timers[i].elapsed() > 0)
+      cerr << T::type_string() << " waiting for " << i << ": "
+        << player_timers[i].elapsed() << endl;
+#endif
+}
+
+template<class T>
+void TreeSum<T>::run(vector<T>& values, const Player& P)
+{
+  start(values, P);
+  finish(values, P);
+}
+
+template<class T>
+size_t TreeSum<T>::report_size(ReportType type)
+{
+  if (type == CAPACITY)
+    return os.get_max_length();
+  else
+    return os.get_length();
+}
+
+template<class T, int t>
+void add_openings(vector<T>& values, const Player& P, int sum_players, int last_sum_players, int send_player, TreeSum<T>& MC)
+{
+  MC.player_timers.resize(P.num_players());
+  vector<octetStream>& oss = MC.oss;
+  oss.resize(P.num_players());
+  vector<int> senders;
+  senders.reserve(P.num_players());
+
+  for (int relative_sender = positive_modulo(P.my_num() - send_player, P.num_players()) + sum_players;
+      relative_sender < last_sum_players; relative_sender += sum_players)
+    {
+      int sender = positive_modulo(send_player + relative_sender, P.num_players());
+      senders.push_back(sender);
+    }
+
+  for (int j = 0; j < (int)senders.size(); j++)
+    P.request_receive(senders[j], oss[j]);
+
+  for (int j = 0; j < (int)senders.size(); j++)
+    {
+      int sender = senders[j];
+      MC.player_timers[sender].start();
+      P.wait_receive(sender, oss[j], true);
+      MC.player_timers[sender].stop();
+      if ((unsigned)oss[j].get_length() < values.size() * T::size())
+        {
+          stringstream ss;
+          ss << "Not enough information received, expected "
+              << values.size() * T::size() << " bytes, got "
+              << oss[j].get_length();
+          throw Processor_Error(ss.str());
+        }
+      MC.timers[SUM].start();
+      for (unsigned int i=0; i<values.size(); i++)
+        {
+          values[i].template add<t>(oss[j]);
+        }
+      MC.timers[SUM].stop();
+    }
+}
+
+template<class T>
+void TreeSum<T>::start(vector<T>& values, const Player& P)
+{
+  os.reset_write_head();
+  int sum_players = P.num_players();
+  int my_relative_num = positive_modulo(P.my_num() - base_player, P.num_players());
+  while (true)
+    {
+      int last_sum_players = sum_players;
+      sum_players = (sum_players - 2 + opening_sum) / opening_sum;
+      if (sum_players == 0)
+        break;
+      if (my_relative_num >= sum_players && my_relative_num < last_sum_players)
+        {
+          for (unsigned int i=0; i<values.size(); i++)
+            { values[i].pack(os); }
+          int receiver = positive_modulo(base_player + my_relative_num % sum_players, P.num_players());
+          timers[SEND].start();
+          P.send_to(receiver,os,true);
+          timers[SEND].stop();
+        }
+
+      if (my_relative_num < sum_players)
+        {
+          timers[RECV_ADD].start();
+          if (T::t() == 2)
+            add_openings<T,2>(values, P, sum_players, last_sum_players, base_player, *this);
+          else
+            add_openings<T,0>(values, P, sum_players, last_sum_players, base_player, *this);
+          timers[RECV_ADD].stop();
+        }
+    }
+
+  if (P.my_num() == base_player)
+    {
+      os.reset_write_head();
+      for (unsigned int i=0; i<values.size(); i++)
+        { values[i].pack(os); }
+      timers[BCAST].start();
+      for (int i = 1; i < max_broadcast && i < P.num_players(); i++)
+        {
+          P.send_to((base_player + i) % P.num_players(), os, true);
+        }
+      timers[BCAST].stop();
+      AddToValues(values);
+    }
+  else if (my_relative_num * max_broadcast < P.num_players())
+    {
+      int sender = (base_player + my_relative_num / max_broadcast) % P.num_players();
+      ReceiveValues(values, P, sender);
+      timers[BCAST].start();
+      for (int i = 0; i < max_broadcast; i++)
+        {
+          int relative_receiver = (my_relative_num * max_broadcast + i);
+          if (relative_receiver < P.num_players())
+            {
+              int receiver = (base_player + relative_receiver) % P.num_players();
+              P.send_to(receiver, os, true);
+            }
+        }
+      timers[BCAST].stop();
+    }
+}
+
+template<class T>
+void TreeSum<T>::finish(vector<T>& values, const Player& P)
+{
+  int my_relative_num = positive_modulo(P.my_num() - base_player, P.num_players());
+  if (my_relative_num * max_broadcast >= P.num_players())
+    {
+      int sender = (base_player + my_relative_num / max_broadcast) % P.num_players();
+      ReceiveValues(values, P, sender);
+    }
+  else
+    GetValues(values);
+}
+
+template<class T>
+void TreeSum<T>::ReceiveValues(vector<T>& values, const Player& P, int sender)
+{
+  timers[RECV_SUM].start();
+  P.receive_player(sender, os, true);
+  timers[RECV_SUM].stop();
+  for (unsigned int i = 0; i < values.size(); i++)
+    values[i].unpack(os);
+  AddToValues(values);
+}
 
 #endif

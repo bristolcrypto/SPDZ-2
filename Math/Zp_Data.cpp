@@ -10,12 +10,12 @@ void Zp_Data::init(const bigint& p,bool mont)
 
   montgomery=mont;
   t=mpz_size(pr.get_mpz_t());
-  if (t>=MAX_MOD_SZ)
-    throw max_mod_sz_too_small(t+1);
+  if (t>MAX_MOD_SZ)
+    throw max_mod_sz_too_small(t);
   if (montgomery)
-    { mpn_zero(R,MAX_MOD_SZ);
-      mpn_zero(R2,MAX_MOD_SZ);
-      mpn_zero(R3,MAX_MOD_SZ);
+    { inline_mpn_zero(R,MAX_MOD_SZ);
+      inline_mpn_zero(R2,MAX_MOD_SZ);
+      inline_mpn_zero(R3,MAX_MOD_SZ);
       bigint r=2,pp=pr;
       mpz_pow_ui(r.get_mpz_t(),r.get_mpz_t(),t*8*sizeof(mp_limb_t));
       mpz_invert(pp.get_mpz_t(),pr.get_mpz_t(),r.get_mpz_t());
@@ -36,7 +36,7 @@ void Zp_Data::init(const bigint& p,bool mont)
           throw not_implemented();
         }
     }
-  mpn_zero(prA,MAX_MOD_SZ);
+  inline_mpn_zero(prA,MAX_MOD_SZ+1);
   mpn_copyi(prA,pr.get_mpz_t()->_mp_d,t);
 }
 
@@ -47,21 +47,14 @@ void Zp_Data::assign(const Zp_Data& Zp)
 
   montgomery=Zp.montgomery;
   t=Zp.t;
-  mpn_copyi(R,Zp.R,t+1);
-  mpn_copyi(R2,Zp.R2,t+1);
-  mpn_copyi(R3,Zp.R3,t+1);
+  mpn_copyi(R,Zp.R,t);
+  mpn_copyi(R2,Zp.R2,t);
+  mpn_copyi(R3,Zp.R3,t);
   pi=Zp.pi;  
 
   mpn_copyi(prA,Zp.prA,t+1);
 }
 
-
-void Zp_Data::Sub(mp_limb_t* ans,const mp_limb_t* x,const mp_limb_t* y) const
-{
-  mp_limb_t borrow = mpn_sub_n(ans,x,y,t);
-  if (borrow!=0)
-    mpn_add_n(ans,ans,prA,t);
-}
 
 __m128i Zp_Data::get_random128(PRNG& G)
 {
@@ -78,8 +71,7 @@ __m128i Zp_Data::get_random128(PRNG& G)
 
 void Zp_Data::Mont_Mult(mp_limb_t* z,const mp_limb_t* x,const mp_limb_t* y) const
 {
-  if (x[t]!=0 || y[t]!=0) { cout << "Mont_Mult Bug" << endl; abort(); }
-  mp_limb_t ans[2*MAX_MOD_SZ],u;
+  mp_limb_t ans[2*MAX_MOD_SZ+1],u;
   // First loop
   u=x[0]*y[0]*pi;
   ans[t]  = mpn_mul_1(ans,y,t,x[0]);
@@ -88,15 +80,15 @@ void Zp_Data::Mont_Mult(mp_limb_t* z,const mp_limb_t* x,const mp_limb_t* y) cons
     { // u=(ans0+xi*y0)*pd
       u=(ans[i]+x[i]*y[0])*pi;
       // ans=ans+xi*y+u*pr
-      ans[t+i+1]=mpn_addmul_1(ans+i,y,t+1,x[i]);
-      ans[t+i+1]+=mpn_addmul_1(ans+i,prA,t+1,u);
+      ans[t+i]+=mpn_addmul_1(ans+i,y,t,x[i]);
+      ans[t+i+1]=mpn_addmul_1(ans+i,prA,t+1,u);
     }
   // if (ans>=pr) { ans=z-pr; }
   // else         { z=ans;    }
   if (mpn_cmp(ans+t,prA,t+1)>=0)
      { mpn_sub_n(z,ans+t,prA,t); }
   else
-     { mpn_copyi(z,ans+t,t); }
+     { inline_mpn_copyi(z,ans+t,t); }
 }
 
 
@@ -123,16 +115,40 @@ istream& operator>>(istream& s,Zp_Data& ZpD)
   s >> ZpD.pr >> ZpD.montgomery;
   if (ZpD.montgomery)
     { s >> ZpD.t >> ZpD.pi;
-      if (ZpD.t>=MAX_MOD_SZ)
-        throw max_mod_sz_too_small(ZpD.t+1);
-      mpn_zero(ZpD.R,MAX_MOD_SZ);
-      mpn_zero(ZpD.R2,MAX_MOD_SZ);
-      mpn_zero(ZpD.R3,MAX_MOD_SZ);
-      mpn_zero(ZpD.prA,MAX_MOD_SZ);
+      if (ZpD.t>MAX_MOD_SZ)
+        throw max_mod_sz_too_small(ZpD.t);
+      inline_mpn_zero(ZpD.R,MAX_MOD_SZ);
+      inline_mpn_zero(ZpD.R2,MAX_MOD_SZ);
+      inline_mpn_zero(ZpD.R3,MAX_MOD_SZ);
+      inline_mpn_zero(ZpD.prA,MAX_MOD_SZ+1);
       for (int i=0; i<ZpD.t; i++) { s >> ZpD.R[i]; }
       for (int i=0; i<ZpD.t; i++) { s >> ZpD.R2[i]; }
       for (int i=0; i<ZpD.t; i++) { s >> ZpD.R3[i]; }
       for (int i=0; i<ZpD.t; i++) { s >> ZpD.prA[i]; }
     }
   return s;
+}
+
+void Zp_Data::pack(octetStream& o) const
+{
+  pr.pack(o);
+  o.store((int)montgomery);
+}
+
+void Zp_Data::unpack(octetStream& o)
+
+{
+  pr.unpack(o);
+  int m;
+  o.get(m);
+  montgomery = m;
+  init(pr, m);
+}
+
+bool Zp_Data::operator!=(const Zp_Data& other) const
+{
+  if (pr != other.pr or montgomery != other.montgomery)
+    return true;
+  else
+    return false;
 }

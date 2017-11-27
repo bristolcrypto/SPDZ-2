@@ -14,7 +14,6 @@
 
 #include <algorithm>
 
-enum mc_timer { SEND, RECV_ADD, BCAST, RECV_SUM, SEED, COMMIT, WAIT_SUMMER, RECV, SUM, SELECT, MAX_TIMER };
 const char* mc_timer_names[] = {
         "sending",
         "receiving and adding",
@@ -31,68 +30,16 @@ const char* mc_timer_names[] = {
 
 template<class T>
 MAC_Check<T>::MAC_Check(const T& ai, int opening_sum, int max_broadcast, int send_player) :
-    base_player(send_player), opening_sum(opening_sum), max_broadcast(max_broadcast)
+    TreeSum<T>(opening_sum, max_broadcast, send_player)
 {
   popen_cnt=0;
   alphai=ai;
   values_opened=0;
-  timers.resize(MAX_TIMER);
 }
 
 template<class T>
 MAC_Check<T>::~MAC_Check()
 {
-  for (unsigned int i = 0; i < timers.size(); i++)
-    if (timers[i].elapsed() > 0)
-      cerr << T::type_string() << " " << mc_timer_names[i] << ": "
-        << timers[i].elapsed() << endl;
-
-  for (unsigned int i = 0; i < player_timers.size(); i++)
-    if (player_timers[i].elapsed() > 0)
-      cerr << T::type_string() << " waiting for " << i << ": "
-        << player_timers[i].elapsed() << endl;
-}
-
-template<class T, int t>
-void add_openings(vector<T>& values, const Player& P, int sum_players, int last_sum_players, int send_player, MAC_Check<T>& MC)
-{
-  MC.player_timers.resize(P.num_players());
-  vector<octetStream>& oss = MC.oss;
-  oss.resize(P.num_players());
-  vector<int> senders;
-  senders.reserve(P.num_players());
-
-  for (int relative_sender = positive_modulo(P.my_num() - send_player, P.num_players()) + sum_players;
-      relative_sender < last_sum_players; relative_sender += sum_players)
-    {
-      int sender = positive_modulo(send_player + relative_sender, P.num_players());
-      senders.push_back(sender);
-    }
-
-  for (int j = 0; j < (int)senders.size(); j++)
-    P.request_receive(senders[j], oss[j]);
-
-  for (int j = 0; j < (int)senders.size(); j++)
-    {
-      int sender = senders[j];
-      MC.player_timers[sender].start();
-      P.wait_receive(sender, oss[j], true);
-      MC.player_timers[sender].stop();
-      if ((unsigned)oss[j].get_length() < values.size() * T::size())
-        {
-          stringstream ss;
-          ss << "Not enough information received, expected "
-              << values.size() * T::size() << " bytes, got "
-              << oss[j].get_length();
-          throw Processor_Error(ss.str());
-        }
-      MC.timers[SUM].start();
-      for (unsigned int i=0; i<values.size(); i++)
-        {
-          values[i].template add<t>(oss[j].consume(T::size()));
-        }
-      MC.timers[SUM].stop();
-    }
 }
 
 template<class T>
@@ -100,85 +47,21 @@ void MAC_Check<T>::POpen_Begin(vector<T>& values,const vector<Share<T> >& S,cons
 {
   AddToMacs(S);
 
+  values.resize(S.size());
   for (unsigned int i=0; i<S.size(); i++)
     { values[i]=S[i].get_share(); }
 
-  os.reset_write_head();
-  int sum_players = P.num_players();
-  int my_relative_num = positive_modulo(P.my_num() - base_player, P.num_players());
-  while (true)
-    {
-      int last_sum_players = sum_players;
-      sum_players = (sum_players - 2 + opening_sum) / opening_sum;
-      if (sum_players == 0)
-        break;
-      if (my_relative_num >= sum_players && my_relative_num < last_sum_players)
-        {
-          for (unsigned int i=0; i<S.size(); i++)
-            { values[i].pack(os); }
-          int receiver = positive_modulo(base_player + my_relative_num % sum_players, P.num_players());
-          timers[SEND].start();
-          P.send_to(receiver,os,true);
-          timers[SEND].stop();
-        }
-
-      if (my_relative_num < sum_players)
-        {
-          timers[RECV_ADD].start();
-          if (T::t() == 2)
-            add_openings<T,2>(values, P, sum_players, last_sum_players, base_player, *this);
-          else
-            add_openings<T,0>(values, P, sum_players, last_sum_players, base_player, *this);
-          timers[RECV_ADD].stop();
-        }
-    }
-
-  if (P.my_num() == base_player)
-    {
-      os.reset_write_head();
-      for (unsigned int i=0; i<S.size(); i++)
-        { values[i].pack(os); }
-      timers[BCAST].start();
-      for (int i = 1; i < max_broadcast && i < P.num_players(); i++)
-        {
-          P.send_to((base_player + i) % P.num_players(), os, true);
-        }
-      timers[BCAST].stop();
-      AddToValues(values);
-    }
-  else if (my_relative_num * max_broadcast < P.num_players())
-    {
-      int sender = (base_player + my_relative_num / max_broadcast) % P.num_players();
-      ReceiveValues(values, P, sender);
-      timers[BCAST].start();
-      for (int i = 0; i < max_broadcast; i++)
-        {
-          int relative_receiver = (my_relative_num * max_broadcast + i);
-          if (relative_receiver < P.num_players())
-            {
-              int receiver = (base_player + relative_receiver) % P.num_players();
-              P.send_to(receiver, os, true);
-            }
-        }
-      timers[BCAST].stop();
-    }
+  this->start(values, P);
 
   values_opened += S.size();
 }
-
 
 template<class T>
 void MAC_Check<T>::POpen_End(vector<T>& values,const vector<Share<T> >& S,const Player& P)
 {
   S.size();
-  int my_relative_num = positive_modulo(P.my_num() - base_player, P.num_players());
-  if (my_relative_num * max_broadcast >= P.num_players())
-    {
-      int sender = (base_player + my_relative_num / max_broadcast) % P.num_players();
-      ReceiveValues(values, P, sender);
-    }
-  else
-    GetValues(values);
+
+  this->finish(values, P);
 
   popen_cnt += values.size();
   CheckIfNeeded(P);
@@ -203,18 +86,6 @@ template<class T>
 void MAC_Check<T>::AddToValues(vector<T>& values)
 {
   vals.insert(vals.end(), values.begin(), values.end());
-}
-
-
-template<class T>
-void MAC_Check<T>::ReceiveValues(vector<T>& values, const Player& P, int sender)
-{
-  timers[RECV_SUM].start();
-  P.receive_player(sender, os, true);
-  timers[RECV_SUM].stop();
-  for (unsigned int i = 0; i < values.size(); i++)
-    values[i].unpack(os);
-  AddToValues(values);
 }
 
 
@@ -261,9 +132,9 @@ void MAC_Check<T>::Check(const Player& P)
 
   //cerr << "In MAC Check : " << popen_cnt << endl;
   octet seed[SEED_SIZE];
-  timers[SEED].start();
+  this->timers[SEED].start();
   Create_Random_Seed(seed,P,SEED_SIZE);
-  timers[SEED].stop();
+  this->timers[SEED].stop();
   PRNG G;
   G.SetSeed(seed);
 
@@ -286,9 +157,9 @@ void MAC_Check<T>::Check(const Player& P)
   tau[P.my_num()].sub(gami,temp);
 
   //cerr << "\tCommit and Open" << endl;
-  timers[COMMIT].start();
+  this->timers[COMMIT].start();
   Commit_And_Open(tau,P);
-  timers[COMMIT].stop();
+  this->timers[COMMIT].stop();
 
   //cerr << "\tFinal Check" << endl;
 
@@ -445,7 +316,7 @@ Direct_MAC_Check<T>::~Direct_MAC_Check() {
 template<class T>
 void Direct_MAC_Check<T>::POpen_Begin(vector<T>& values,const vector<Share<T> >& S,const Player& P)
 {
-  values.size();
+  values.resize(S.size());
   this->os.reset_write_head();
   for (unsigned int i=0; i<S.size(); i++)
     S[i].get_share().pack(this->os);

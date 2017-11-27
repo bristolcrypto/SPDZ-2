@@ -23,7 +23,7 @@ class ServerSocket
 protected:
     int main_socket, portnum;
     map<int,int> clients;
-    set<int> used;
+    std::set<int> used;
     Signal data_signal;
     pthread_t thread;
 

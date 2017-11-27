@@ -54,6 +54,7 @@ class gf2n_short
 
   static void init_field(int nn);
   static int degree() { return n; }
+  static int default_degree() { return 40; }
   static int get_nterms() { return nterms; }
   static int get_t(int i) 
     { if (i==0)      { return t1; }
@@ -119,6 +120,9 @@ class gf2n_short
   template<int T>
   void add(octet* x)
     { a^=*(word*)(x); }
+  template <int T>
+  void add(octetStream& os)
+    { add<T>(os.consume(size())); }
   void add(octet* x)
     { add<0>(x); }
   void sub(const gf2n_short& x,const gf2n_short& y)
