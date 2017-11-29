@@ -1,0 +1,100 @@
+# (C) 2017 University of Bristol. See License.txt
+
+from Compiler import instructions_base
+import sys
+
+program.bit_length = 128
+nparallel = int(sys.argv[2])
+
+instructions_base.set_global_vector_size(nparallel)
+use_cubes = True
+# To disable key-dependent pre-processing set use_cubes=False
+
+class KDPreprocessing(object):
+    """ Generate Key-Dependent Pre-processing """
+
+    def __init__(self, num_calls, rounds):
+        rint = VectorArray(num_calls * rounds, sint, nparallel)
+        rsquare = VectorArray(num_calls * rounds, sint, nparallel)
+        rcube = VectorArray(num_calls * rounds, sint, nparallel)
+
+        self.rounds = rounds
+        self.num_calls = num_calls
+        self.index = MemValue(regint(0))
+
+        @for_range(num_calls)
+        def block(i):
+            cur_block = i * rounds
+            for r in range(rounds):
+                next_block = cur_block + r
+                ta1, ta2 = sint.get_random_square()
+                for k in range(3):
+                    rint[next_block] = ta1
+                    rsquare[next_block] = ta2
+                    rcube[next_block] = ta1 * ta2
+
+        # [r], [r^2], [r^3]
+        self.rint = rint
+        self.rsquare = rsquare
+        self.rcube = rcube
+
+    def get_material(self, where):
+        """ returns [r], [r^2], [r^3] as a pre-processed tuple """
+        index = self.index
+        target = index * self.rounds + where
+        rint = self.rint[target]
+        rsquare = self.rsquare[target]
+        rcube = self.rcube[target]
+        return rint, rsquare, rcube
+
+    def gen_next_pre(self):
+        self.index.iadd(1)
+
+    def reset(self):
+        self.index.imul(0)
+
+class MiMC(object):
+    """ Class for MiMC PRF as described in https://eprint.iacr.org/2016/542 """
+
+    def __init__(self, _rounds, _key, num_calls):
+        self.rounds = _rounds
+        # Random constants for each round
+        self.constants = self.get_rounds_constants()
+        self.key = _key
+        self.kd_pre = KDPreprocessing(num_calls, self.rounds)
+
+    def get_rounds_constants(self):
+        return [sint.get_random_triple()[0].reveal() for i in range(self.rounds)] 
+
+    @vectorize
+    def encrypt(self, m):
+        key = self.key
+        x = m + key
+
+        for r in range(self.rounds):
+            if use_cubes:
+                a1, a2, a3 = self.kd_pre.get_material(r)
+                y = (x - a1).reveal()
+                y2 = y**2
+                y3 = y * y2
+                x3 = 3*(y*a2 + y2*a1) + y3 + a3
+                x = x3 + key + self.constants[r]
+            else:
+                x = x ** 3
+                x = x + key + self.constants[r]
+
+        x = x + key
+        self.kd_pre.gen_next_pre()
+        return x
+
+    def encrypt_clear_to_ss(self, m):
+        return self.encrypt(m)
+
+    def encrypt_ss_to_ss(self, m):
+        return self.encrypt(m)
+
+    def encrypt_ss_to_clear(self, m):
+        return self.encrypt(m).reveal()
+
+    def reset_kd_pre(self):
+        self.kd_pre.reset()
