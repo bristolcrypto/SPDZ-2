@@ -74,8 +74,8 @@ If we want to run a real MPC computation - P1 shares a and P2 shares b - and
 reveal the sum of the values then we can write the following.
 
 ```
-a = sint.get_raw_input_from(0)
-b = sint.get_raw_input_from(1)
+a = sint.get_input_from(0)
+b = sint.get_input_from(1)
 
 c = a + b
 print_ln('Result is %s', c.reveal())
