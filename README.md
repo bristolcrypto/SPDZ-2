@@ -110,7 +110,7 @@ This implementation is suitable to generate the preprocessed data used in the on
 
 For quick run on one machine, you can call the following:
 
-`./spdz2-offline.x -p 0 & ./spdz-offline.x -p 1`
+`./spdz2-offline.x -p 0 & ./spdz2-offline.x -p 1`
 
 More generally, run the following on every machine:
 
