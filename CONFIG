@@ -15,7 +15,7 @@ USE_GF2N_LONG = 0
 
 # set to -march=<architecture> for optimization
 # AVX2 support (Haswell or later) changes the bit matrix transpose
-ARCH = -mtune=native
+ARCH = -mtune=native -mavx
 
 #use CONFIG.mine to overwrite DIR settings
 -include CONFIG.mine
@@ -40,7 +40,7 @@ LDLIBS += -lrt
 endif
 
 CXX = g++
-CFLAGS = $(ARCH) $(MY_CFLAGS) -g -Wextra -Wall $(OPTIM) -I$(ROOT) -pthread $(PROF) $(DEBUG) $(MOD) $(MEMPROTECT) $(GF2N_LONG) $(PREP_DIR) -maes -mpclmul -msse4.1 -mavx --std=c++11 -Werror
+CFLAGS = $(ARCH) $(MY_CFLAGS) -g -Wextra -Wall $(OPTIM) -I$(ROOT) -pthread $(PROF) $(DEBUG) $(MOD) $(MEMPROTECT) $(GF2N_LONG) $(PREP_DIR) -maes -mpclmul -msse4.1 --std=c++11 -Werror
 CPPFLAGS = $(CFLAGS)
 LD = g++
 
