@@ -27,31 +27,49 @@ void MMO::setIV(octet key[AES_BLK_SIZE])
 }
 
 
+template<int N>
+void MMO::encrypt_and_xor(void* output, const void* input, const octet* key)
+{
+    __m128i in[N], out[N];
+    avx_memcpy(in, input, sizeof(in));
+    ecb_aes_128_encrypt<N>(out, in, key);
+    for (int i = 0; i < N; i++)
+        out[i] = _mm_xor_si128(out[i], in[i]);
+    avx_memcpy(output, out, sizeof(out));
+}
+
+template<int N>
+void MMO::encrypt_and_xor(void* output, const void* input, const octet* key,
+        const int* indices)
+{
+    __m128i in[N], out[N];
+    for (int i = 0; i < N; i++)
+        in[i] = _mm_loadu_si128(((__m128i*)input) + indices[i]);
+    encrypt_and_xor<N>(out, in, key);
+    for (int i = 0; i < N; i++)
+        _mm_storeu_si128(((__m128i*)output) + indices[i], out[i]);
+}
+
 template <>
 void MMO::hashOneBlock<gf2n>(octet* output, octet* input)
 {
-    __m128i in = _mm_loadu_si128((__m128i*)input);
-    __m128i ct = aes_encrypt(in, IV);
-//    __m128i out = ct ^ in;
-    _mm_storeu_si128((__m128i*)output, ct);
+    encrypt_and_xor<1>(output, input, IV);
 }
 
 
 template <>
 void MMO::hashOneBlock<gfp>(octet* output, octet* input)
 {
-    __m128i in = _mm_loadu_si128((__m128i*)input);
-    __m128i ct = aes_encrypt(in, IV);
-    while (mpn_cmp((mp_limb_t*)&ct, gfp::get_ZpD().get_prA(), gfp::t()) >= 0)
-        ct = aes_encrypt(ct, IV);
-    _mm_storeu_si128((__m128i*)output, ct);
+    encrypt_and_xor<1>(output, input, IV);
+    while (mpn_cmp((mp_limb_t*)output, gfp::get_ZpD().get_prA(), gfp::t()) >= 0)
+        encrypt_and_xor<1>(output, output, IV);
 }
 
 template <>
 void MMO::hashBlockWise<gf2n,128>(octet* output, octet* input)
 {
     for (int i = 0; i < 16; i++)
-        ecb_aes_128_encrypt<8>(&((__m128i*)output)[i*8], &((__m128i*)input)[i*8], IV);
+        encrypt_and_xor<8>(&((__m128i*)output)[i*8], &((__m128i*)input)[i*8], IV);
 }
 
 template <>
@@ -61,7 +79,7 @@ void MMO::hashBlockWise<gfp,128>(octet* output, octet* input)
     {
         __m128i* in = &((__m128i*)input)[i*8];
         __m128i* out = &((__m128i*)output)[i*8];
-        ecb_aes_128_encrypt<8>(out, in, IV);
+        encrypt_and_xor<8>(out, in, IV);
         int left = 8;
         int indices[8] = {0, 1, 2, 3, 4, 5, 6, 7};
         while (left)
