@@ -32,6 +32,7 @@ In particular, the online phase will discard preprocessed data and crash when it
  - To benchmark only the online phase (skipping the secure offline phase), add the following line at the top: `MY_CFLAGS = -DINSECURE`
  - `PREP_DIR` should point to should be a local, unversioned directory to store preprocessing data (default is `Player-Data` in the current directory).
  - For the SPDZ-2 offline phase, set `USE_NTL = 1` and `MOD = -DMAX_MOD_SZ=6`.
+ - For the MASCOT offline phase or to use GF(2^128) in the online phase, set `USE_GF2N_LONG = 1`.
  - For processors without AVX (e.g., Intel Atom) or for optimization, set `ARCH = -march=<architecture>`.
 
 2) Run make (use the flag -j for faster compilation multiple threads). Remember to run `make clean` first after changing `CONFIG` or `CONFIG.mine`.
