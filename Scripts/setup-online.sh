@@ -32,6 +32,6 @@ done
 
 $SPDZROOT/Fake-Offline.x ${players} -lgp ${bits} -lg2 ${g} --default ${default}
 
-for i in 0 1; do
+for i in $(seq 0 $[players-1]) ; do
     dd if=/dev/zero of=Player-Data/Private-Input-$i bs=10000 count=1
 done
