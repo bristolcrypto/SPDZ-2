@@ -14,13 +14,14 @@ Processor::Processor(int thread_num,Data_Files& DataF,Player& P,
         MAC_Check<gf2n>& MC2,MAC_Check<gfp>& MCp,Machine& machine,
         const Program& program)
 : thread_num(thread_num),DataF(DataF),P(P),MC2(MC2),MCp(MCp),machine(machine),
+  private_input_filename(get_filename(PREP_DIR "Private-Input-",true)),
   input2(*this,MC2),inputp(*this,MCp),privateOutput2(*this),privateOutputp(*this),sent(0),rounds(0),
   external_clients(ExternalClients(P.my_num(), DataF.prep_data_dir)),binary_file_io(Binary_File_IO())
 {
   reset(program,0);
 
   public_input.open(get_filename("Programs/Public-Input/",false).c_str());
-  private_input.open(get_filename(PREP_DIR "Private-Input-",true).c_str());
+  private_input.open(private_input_filename.c_str());
   public_output.open(get_filename(PREP_DIR "Public-Output-",true).c_str(), ios_base::out);
   private_output.open(get_filename(PREP_DIR "Private-Output-",true).c_str(), ios_base::out);
 }

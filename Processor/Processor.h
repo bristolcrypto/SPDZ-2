@@ -93,6 +93,8 @@ class Processor : public ProcessorBase
   MAC_Check<gfp>& MCp;
   Machine& machine;
 
+  string private_input_filename;
+
   Input<gf2n> input2;
   Input<gfp> inputp;
   

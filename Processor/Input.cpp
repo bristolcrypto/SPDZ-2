@@ -12,7 +12,7 @@ template<class T>
 Input<T>::Input(Processor& proc, MAC_Check<T>& mc) :
         proc(proc), MC(mc), shares(proc.P.num_players()), values_input(0)
 {
-    buffer.setup(&proc.private_input, -1, "private input");
+    buffer.setup(&proc.private_input, -1, proc.private_input_filename);
 }
 
 template<class T>
