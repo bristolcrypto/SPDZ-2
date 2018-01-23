@@ -147,7 +147,7 @@ and the message to party 1.
 For example, say that we have a key equal to
 
 ```
-28aed2a6abf7158809cf4f3c
+2b7e151628aed2a6abf7158809cf4f3c
 ```
 
 We have to convert this into SPDZ datatypes so we use the scripts
