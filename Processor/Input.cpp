@@ -47,7 +47,14 @@ void Input<T>::start(int player, int n_inputs)
             Share<T>& share = shares[player][i];
             proc.DataF.get_input(share, rr, player);
             T xi;
-            buffer.input(t);
+            try
+            {
+                buffer.input(t);
+            }
+            catch (not_enough_to_buffer& e)
+            {
+                throw runtime_error("Insufficient input data to buffer");
+            }
             t.sub(t, rr);
             t.pack(o);
             xi.add(t, share.get_share());

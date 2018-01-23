@@ -40,8 +40,7 @@ void BufferBase::try_rewind()
     string type;
     if (field_type and data_type)
         type = (string)" of " + field_type + " " + data_type;
-    throw runtime_error("Insufficient preprocessing" + type + ".\nFor benchmarking, "
-            "you can activate reusing data by adding -DINSECURE to the compiler options.");
+    throw not_enough_to_buffer(type);
 #endif
     file->clear(); // unset EOF flag
     file->seekg(0);

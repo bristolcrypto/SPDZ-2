@@ -187,7 +187,18 @@ class crash_requested: public exception
     };
 class memory_exception : public exception {};
 class how_would_that_work : public exception {};
-
+class not_enough_to_buffer : public runtime_error
+{
+public:
+    not_enough_to_buffer(string type) :
+            runtime_error(
+                    "Not enough data available for buffer. "
+                            "Maybe insufficient preprocessing" + type
+                            + ".\nFor benchmarking, you can activate reusing data by "
+                                    "adding -DINSECURE to the compiler options.")
+    {
+    }
+};
 
 
 #endif
