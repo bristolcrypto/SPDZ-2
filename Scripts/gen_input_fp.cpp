@@ -8,8 +8,10 @@
 using namespace std;
 
 int main() {
-	ifstream cin("gfp_vals.in");
-	ofstream cout("gfp_vals.out");
+	const char* input_name = "gfp_vals.in";
+	const char* output_name = "gfp_vals.out";
+	ifstream cin(input_name);
+	ofstream cout(output_name);
 
 	gfp::init_field(bigint("172035116406933162231178957667602464769"));
 
@@ -21,6 +23,13 @@ int main() {
 		to_gfp(b, a);
 		b.output(cout, false);
 	}
+	if (cin.fail())
+	{
+		cout.close();
+		unlink(output_name);
+		throw runtime_error("Failed to read " + string(input_name));
+	}
+
 	n = -(n % BUFFER_SIZE) + BUFFER_SIZE;
 	cerr << "Adding " << n << " zeros to match buffer size" << endl;
 	for (int i = 0; i < n; i++)
