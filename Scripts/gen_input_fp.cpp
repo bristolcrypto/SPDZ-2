@@ -69,6 +69,8 @@ int main(int argc, const char** argv) {
 	cerr << "Adding " << n << " zeros to match buffer size" << endl;
 	for (int i = 0; i < n; i++)
 		gfp(0).output(cout, false);
+	cerr << "Output written to " << output_name
+			<< ", copy to Player-Data/Private-Input-<playerno>" << endl;
 
 	cin.close();	
 	cout.close();
