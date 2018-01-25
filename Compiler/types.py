@@ -2192,12 +2192,6 @@ class sfloat(_number):
     @vectorize
     def __neg__(self):
         return sfloat(self.v, self.p,  self.z, (1 - self.s) * (1 - self.z))
-
-    def __abs__(self):
-        if self.s:
-            return -self
-        else:
-            return self
     
     @vectorize
     def __lt__(self, other):
