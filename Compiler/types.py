@@ -1698,7 +1698,7 @@ class cfix(_number):
     @vectorize
     def __abs__(self):
         neg_flag = self.v < 0
-        return self * cint(1 - 2 * neg_flag)
+        return self - cint(neg_flag) * (self + self)
     
     def __rsub__(self, other):
         return -self + other
@@ -1881,7 +1881,7 @@ class sfix(_number):
     @vectorize
     def __abs__(self):
         neg_flag = self.v < 0
-        return self * sint(1 - 2 * neg_flag)
+        return self - sint(neg_flag) * (self + self)
 
     def __rsub__(self, other):
         return -self + other
