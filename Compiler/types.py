@@ -2026,8 +2026,10 @@ class sfloat(_number):
                 v, p, z, s = floatingpoint.Int2FL(v.v, v.k,
                                                   self.vlen, self.kappa)
                 p = p - f
-            else:
+            elif isinstance(v, (int, long, float)):
                 v, p, z, s = self.convert_float(v, self.vlen, self.plen)
+            else:
+                raise CompilerError('Cannot convert %s to sfloat ' % (type(v)))
         if isinstance(v, int):
             if not ((v >= 2**(self.vlen-1) and v < 2**(self.vlen)) or v == 0):
                 raise CompilerError('Floating point number malformed: significand')
@@ -2068,105 +2070,107 @@ class sfloat(_number):
     def sizeof(self):
         return self.size * 4
 
+    def parse_type_to_sfloat(self, other):
+        if isinstance(other, sfloat):
+            return other
+        else:
+            return sfloat(other)
+
     @vectorize
     def add(self, other):
-        if isinstance(other, sfloat):
-            a,c,d,e = [sint() for i in range(4)]
-            t = sint()
-            t2 = sint()
-            v1 = self.v
-            v2 = other.v
-            p1 = self.p
-            p2 = other.p
-            s1 = self.s
-            s2 = other.s
-            z1 = self.z
-            z2 = other.z
-            a = p1.less_than(p2, self.plen, self.kappa)
-            b = floatingpoint.EQZ(p1 - p2, self.plen, self.kappa)
-            c = v1.less_than(v2, self.vlen, self.kappa)
-            ap1 = a*p1
-            ap2 = a*p2
-            aneg = 1 - a
-            bneg = 1 - b
-            cneg = 1 - c
-            av1 = a*v1
-            av2 = a*v2
-            cv1 = c*v1
-            cv2 = c*v2
-            pmax = ap2 + p1 - ap1
-            pmin = p2 - ap2 + ap1
-            vmax = bneg*(av2 + v1 - av1) + b*(cv2 + v1 - cv1)
-            vmin = bneg*(av1 + v2 - av2) + b*(cv1 + v2 - cv2)
-            s3 = s1 + s2 - 2 * s1 * s2
-            comparison.LTZ(d, self.vlen + pmin - pmax + sfloat.round_nearest,
-                           self.plen, self.kappa)
-            pow_delta = floatingpoint.Pow2((1 - d) * (pmax - pmin),
-                                           self.vlen + 1 + sfloat.round_nearest,
-                                           self.kappa)
-            # deviate from paper for more precision
-            #v3 = 2 * (vmax - s3) + 1
-            v3 = vmax
-            v4 = vmax * pow_delta + (1 - 2 * s3) * vmin
-            v = (d * v3 + (1 - d) * v4) * two_power(self.vlen + sfloat.round_nearest) \
-                * floatingpoint.Inv(pow_delta)
-            comparison.Trunc(t, v, 2 * self.vlen + 1 + sfloat.round_nearest,
-                             self.vlen - 1, self.kappa, False)
-            v = t
-            u = floatingpoint.BitDec(v, self.vlen + 2 + sfloat.round_nearest,
-                                     self.vlen + 2 + sfloat.round_nearest, self.kappa,
-                                     range(1 + sfloat.round_nearest,
-                                           self.vlen + 2 + sfloat.round_nearest))
-            # using u[0] doesn't seem necessary
-            h = floatingpoint.PreOR(u[:sfloat.round_nearest:-1], self.kappa)
-            p0 = self.vlen + 1 - sum(h)
-            pow_p0 = 1 + sum([two_power(i) * (1 - h[i]) for i in range(len(h))])
-            if self.round_nearest:
-                t2, overflow = \
-                    floatingpoint.TruncRoundNearestAdjustOverflow(pow_p0 * v,
-                                                                  self.vlen + 3,
-                                                                  self.vlen,
-                                                                  self.kappa)
-                p0 = p0 - overflow
-            else:
-                comparison.Trunc(t2, pow_p0 * v, self.vlen + 2, 2, self.kappa, False)
-            v = t2
-            # deviate for more precision
-            #p = pmax - p0 + 1 - d
-            p = pmax - p0 + 1
-            zz = self.z*other.z
-            zprod = 1 - self.z - other.z + zz
-            v = zprod*t2 + self.z*v2 + other.z*v1
-            z = floatingpoint.EQZ(v, self.vlen, self.kappa)
-            p = (zprod*p + self.z*p2 + other.z*p1)*(1 - z)
-            s = (1 - b)*(a*other.s + aneg*self.s) + b*(c*other.s + cneg*self.s)
-            s = zprod*s + (other.z - zz)*self.s + (self.z - zz)*other.s
-            return sfloat(v, p, z, s)
+        other = self.parse_type_to_sfloat(other)
+        a,c,d,e = [sint() for i in range(4)]
+        t = sint()
+        t2 = sint()
+        v1 = self.v
+        v2 = other.v
+        p1 = self.p
+        p2 = other.p
+        s1 = self.s
+        s2 = other.s
+        z1 = self.z
+        z2 = other.z
+        a = p1.less_than(p2, self.plen, self.kappa)
+        b = floatingpoint.EQZ(p1 - p2, self.plen, self.kappa)
+        c = v1.less_than(v2, self.vlen, self.kappa)
+        ap1 = a*p1
+        ap2 = a*p2
+        aneg = 1 - a
+        bneg = 1 - b
+        cneg = 1 - c
+        av1 = a*v1
+        av2 = a*v2
+        cv1 = c*v1
+        cv2 = c*v2
+        pmax = ap2 + p1 - ap1
+        pmin = p2 - ap2 + ap1
+        vmax = bneg*(av2 + v1 - av1) + b*(cv2 + v1 - cv1)
+        vmin = bneg*(av1 + v2 - av2) + b*(cv1 + v2 - cv2)
+        s3 = s1 + s2 - 2 * s1 * s2
+        comparison.LTZ(d, self.vlen + pmin - pmax + sfloat.round_nearest,
+                       self.plen, self.kappa)
+        pow_delta = floatingpoint.Pow2((1 - d) * (pmax - pmin),
+                                       self.vlen + 1 + sfloat.round_nearest,
+                                       self.kappa)
+        # deviate from paper for more precision
+        #v3 = 2 * (vmax - s3) + 1
+        v3 = vmax
+        v4 = vmax * pow_delta + (1 - 2 * s3) * vmin
+        v = (d * v3 + (1 - d) * v4) * two_power(self.vlen + sfloat.round_nearest) \
+            * floatingpoint.Inv(pow_delta)
+        comparison.Trunc(t, v, 2 * self.vlen + 1 + sfloat.round_nearest,
+                         self.vlen - 1, self.kappa, False)
+        v = t
+        u = floatingpoint.BitDec(v, self.vlen + 2 + sfloat.round_nearest,
+                                 self.vlen + 2 + sfloat.round_nearest, self.kappa,
+                                 range(1 + sfloat.round_nearest,
+                                       self.vlen + 2 + sfloat.round_nearest))
+        # using u[0] doesn't seem necessary
+        h = floatingpoint.PreOR(u[:sfloat.round_nearest:-1], self.kappa)
+        p0 = self.vlen + 1 - sum(h)
+        pow_p0 = 1 + sum([two_power(i) * (1 - h[i]) for i in range(len(h))])
+        if self.round_nearest:
+            t2, overflow = \
+                floatingpoint.TruncRoundNearestAdjustOverflow(pow_p0 * v,
+                                                              self.vlen + 3,
+                                                              self.vlen,
+                                                              self.kappa)
+            p0 = p0 - overflow
         else:
-            return NotImplemented
+            comparison.Trunc(t2, pow_p0 * v, self.vlen + 2, 2, self.kappa, False)
+        v = t2
+        # deviate for more precision
+        #p = pmax - p0 + 1 - d
+        p = pmax - p0 + 1
+        zz = self.z*other.z
+        zprod = 1 - self.z - other.z + zz
+        v = zprod*t2 + self.z*v2 + other.z*v1
+        z = floatingpoint.EQZ(v, self.vlen, self.kappa)
+        p = (zprod*p + self.z*p2 + other.z*p1)*(1 - z)
+        s = (1 - b)*(a*other.s + aneg*self.s) + b*(c*other.s + cneg*self.s)
+        s = zprod*s + (other.z - zz)*self.s + (self.z - zz)*other.s
+        return sfloat(v, p, z, s)
     
     @vectorize
     def mul(self, other):
-        if isinstance(other, sfloat):
-            v1 = sint()
-            v2 = sint()
-            b = sint()
-            c2expl = cint()
-            comparison.ld2i(c2expl, self.vlen)
-            if sfloat.round_nearest:
-                v1 = comparison.TruncRoundNearest(self.v*other.v, 2*self.vlen,
-                                             self.vlen-1, self.kappa)
-            else:
-                comparison.Trunc(v1, self.v*other.v, 2*self.vlen, self.vlen-1, self.kappa, False)
-            t = v1 - c2expl
-            comparison.LTZ(b, t, self.vlen+1, self.kappa)
-            comparison.Trunc(v2, b*v1 + v1, self.vlen+1, 1, self.kappa, False)
-            z = self.z + other.z - self.z*other.z       # = OR(z1, z2)
-            s = self.s + other.s - 2*self.s*other.s     # = XOR(s1,s2)
-            p = (self.p + other.p - b + self.vlen)*(1 - z)
-            return sfloat(v2, p, z, s)
+        other = self.parse_type_to_sfloat(other)
+        v1 = sint()
+        v2 = sint()
+        b = sint()
+        c2expl = cint()
+        comparison.ld2i(c2expl, self.vlen)
+        if sfloat.round_nearest:
+            v1 = comparison.TruncRoundNearest(self.v*other.v, 2*self.vlen,
+                                         self.vlen-1, self.kappa)
         else:
-            return NotImplemented
+            comparison.Trunc(v1, self.v*other.v, 2*self.vlen, self.vlen-1, self.kappa, False)
+        t = v1 - c2expl
+        comparison.LTZ(b, t, self.vlen+1, self.kappa)
+        comparison.Trunc(v2, b*v1 + v1, self.vlen+1, 1, self.kappa, False)
+        z = self.z + other.z - self.z*other.z       # = OR(z1, z2)
+        s = self.s + other.s - 2*self.s*other.s     # = XOR(s1,s2)
+        p = (self.p + other.p - b + self.vlen)*(1 - z)
+        return sfloat(v2, p, z, s)
     
     def __sub__(self, other):
         return self + -other
@@ -2175,22 +2179,20 @@ class sfloat(_number):
         raise NotImplementedError()
 
     def __div__(self, other):
-        if isinstance(other, sfloat):
-            v = floatingpoint.SDiv(self.v, other.v + other.z * (2**self.vlen - 1),
-                                   self.vlen, self.kappa)
-            b = v.less_than(two_power(self.vlen-1), self.vlen + 1, self.kappa)
-            overflow = v.greater_equal(two_power(self.vlen), self.vlen + 1, self.kappa)
-            underflow = v.less_than(two_power(self.vlen-2), self.vlen + 1, self.kappa)
-            v = (v + b * v) * (1 - overflow) * (1 - underflow) + \
-                overflow * (2**self.vlen - 1) + \
-                underflow * (2**(self.vlen-1)) * (1 - self.z)
-            p = (1 - self.z) * (self.p - other.p - self.vlen - b + 1)
-            z = self.z
-            s = self.s + other.s - 2 * self.s * other.s
-            sfloat.set_error(other.z)
-            return sfloat(v, p, z, s)
-        else:
-            return NotImplemented
+        other = self.parse_type_to_sfloat(other)
+        v = floatingpoint.SDiv(self.v, other.v + other.z * (2**self.vlen - 1),
+                               self.vlen, self.kappa)
+        b = v.less_than(two_power(self.vlen-1), self.vlen + 1, self.kappa)
+        overflow = v.greater_equal(two_power(self.vlen), self.vlen + 1, self.kappa)
+        underflow = v.less_than(two_power(self.vlen-2), self.vlen + 1, self.kappa)
+        v = (v + b * v) * (1 - overflow) * (1 - underflow) + \
+            overflow * (2**self.vlen - 1) + \
+            underflow * (2**(self.vlen-1)) * (1 - self.z)
+        p = (1 - self.z) * (self.p - other.p - self.vlen - b + 1)
+        z = self.z
+        s = self.s + other.s - 2 * self.s * other.s
+        sfloat.set_error(other.z)
+        return sfloat(v, p, z, s)
 
     @vectorize
     def __neg__(self):
@@ -2198,30 +2200,29 @@ class sfloat(_number):
     
     @vectorize
     def __lt__(self, other):
-        if isinstance(other, sfloat):
-            z1 = self.z
-            z2 = other.z
-            s1 = self.s
-            s2 = other.s
-            a = self.p.less_than(other.p, self.plen, self.kappa)
-            c = floatingpoint.EQZ(self.p - other.p, self.plen, self.kappa)
-            d = ((1 - 2*self.s)*self.v).less_than((1 - 2*other.s)*other.v, self.vlen + 1, self.kappa)
-            cd = c*d
-            ca = c*a
-            b1 = cd + a - ca
-            b2 = cd + 1 + ca - c - a
-            s12 = self.s*other.s
-            z12 = self.z*other.z
-            b = (z1 - z12)*(1 - s2) + (z2 - z12)*s1 + (1 + z12 - z1 - z2)*(s1 - s12 + (1 + s12 - s1 - s2)*b1 + s12*b2)
-            return b
-        else:
-            return NotImplemented
+        other = self.parse_type_to_sfloat(other)
+        z1 = self.z
+        z2 = other.z
+        s1 = self.s
+        s2 = other.s
+        a = self.p.less_than(other.p, self.plen, self.kappa)
+        c = floatingpoint.EQZ(self.p - other.p, self.plen, self.kappa)
+        d = ((1 - 2*self.s)*self.v).less_than((1 - 2*other.s)*other.v, self.vlen + 1, self.kappa)
+        cd = c*d
+        ca = c*a
+        b1 = cd + a - ca
+        b2 = cd + 1 + ca - c - a
+        s12 = self.s*other.s
+        z12 = self.z*other.z
+        b = (z1 - z12)*(1 - s2) + (z2 - z12)*s1 + (1 + z12 - z1 - z2)*(s1 - s12 + (1 + s12 - s1 - s2)*b1 + s12*b2)
+        return b
     
     def __ge__(self, other):
         return 1 - (self < other)
 
     @vectorize
     def __eq__(self, other):
+        other = self.parse_type_to_sfloat(other)
         # the sign can be both ways for zeroes
         both_zero = self.z * other.z
         return floatingpoint.EQZ(self.v - other.v, self.vlen, self.kappa) * \
