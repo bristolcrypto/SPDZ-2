@@ -1694,10 +1694,6 @@ class cfix(_number):
     def __neg__(self):
         # cfix type always has .v
         return cfix(-self.v)
-
-    @vectorize
-    def __abs__(self):
-        return self * cint(self.v >= 0) - self * cint(self.v < 0)
     
     def __rsub__(self, other):
         return -self + other
@@ -1876,10 +1872,6 @@ class sfix(_number):
     @vectorize
     def __neg__(self):
         return sfix(-self.v)
-
-    @vectorize
-    def __abs__(self):
-        return self * sint(self.v >= 0) - self * sint(self.v < 0)
 
     def __rsub__(self, other):
         return -self + other
