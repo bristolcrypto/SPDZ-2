@@ -2183,19 +2183,22 @@ class sfloat(_number):
         raise NotImplementedError()
 
     def __div__(self, other):
-        v = floatingpoint.SDiv(self.v, other.v + other.z * (2**self.vlen - 1),
-                               self.vlen, self.kappa)
-        b = v.less_than(two_power(self.vlen-1), self.vlen + 1, self.kappa)
-        overflow = v.greater_equal(two_power(self.vlen), self.vlen + 1, self.kappa)
-        underflow = v.less_than(two_power(self.vlen-2), self.vlen + 1, self.kappa)
-        v = (v + b * v) * (1 - overflow) * (1 - underflow) + \
-            overflow * (2**self.vlen - 1) + \
-            underflow * (2**(self.vlen-1)) * (1 - self.z)
-        p = (1 - self.z) * (self.p - other.p - self.vlen - b + 1)
-        z = self.z
-        s = self.s + other.s - 2 * self.s * other.s
-        sfloat.set_error(other.z)
-        return sfloat(v, p, z, s)
+        if isinstance(other, sfloat):
+            v = floatingpoint.SDiv(self.v, other.v + other.z * (2**self.vlen - 1),
+                                   self.vlen, self.kappa)
+            b = v.less_than(two_power(self.vlen-1), self.vlen + 1, self.kappa)
+            overflow = v.greater_equal(two_power(self.vlen), self.vlen + 1, self.kappa)
+            underflow = v.less_than(two_power(self.vlen-2), self.vlen + 1, self.kappa)
+            v = (v + b * v) * (1 - overflow) * (1 - underflow) + \
+                overflow * (2**self.vlen - 1) + \
+                underflow * (2**(self.vlen-1)) * (1 - self.z)
+            p = (1 - self.z) * (self.p - other.p - self.vlen - b + 1)
+            z = self.z
+            s = self.s + other.s - 2 * self.s * other.s
+            sfloat.set_error(other.z)
+            return sfloat(v, p, z, s)
+        else:
+            return NotImplemented
 
     @vectorize
     def __neg__(self):
