@@ -2200,7 +2200,7 @@ class sfloat(_number):
 
     @vectorize
     def __abs__(self):
-        return self * (self.s == 0) - self * (self.s == 1)
+        return self - (self.s == 1) * (self + self)
     
     @vectorize
     def __lt__(self, other):
