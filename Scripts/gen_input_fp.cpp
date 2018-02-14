@@ -38,6 +38,26 @@ int main(int argc, const char** argv) {
         "-N", // Flag token.
         "--nparties" // Flag token.
     );
+
+    opt.add(
+            "gfp_vals.in", // Default.
+            0, // Required?
+            1, // Number of args expected.
+            0, // Delimiter if expecting multiple args.
+            "Input file (default: ./gfp_vals.in). Use \"-\" for STDIN.", // Help description.
+            "-i", // Flag token.
+            "--input" // Flag token.
+	);
+
+    opt.add(
+                "gfp_vals.out", // Default.
+                0, // Required?
+                1, // Number of args expected.
+                0, // Delimiter if expecting multiple args.
+                "Output file (default: ./gfp_vals.out). Use \"-\" for STDOUT.", // Help description.
+                "-o", // Flag token.
+                "--output" // Flag token.
+    	);
     opt.parse(argc, argv);
     int nparties, lgp, lg2;
     opt.get("-N")->getInt(nparties);
@@ -45,34 +65,63 @@ int main(int argc, const char** argv) {
     opt.get("-lg2")->getInt(lg2);
     read_setup(nparties, lgp, lg2);
 
-	const char* input_name = "gfp_vals.in";
-	const char* output_name = "gfp_vals.out";
-	ifstream cin(input_name);
-	ofstream cout(output_name);
+	std::string input_name, output_name;
+	bool use_stdin = false;
+	bool use_stdout = false;
+	istream* in;
+	ostream* out;
 
-	int n; cin >> n;
+	opt.get("-i")->getString(input_name);
+	opt.get("-o")->getString(output_name);
+
+	// Input Stream
+	if (input_name == "-"){ // Open file or STDIN
+		use_stdin = true;
+		in = &cin;
+	} else {
+		in = new ifstream(input_name.c_str());
+	}
+	// Output Stream
+	if (output_name == "-"){ // Open file or STDOUT
+		use_stdout = true;
+		out = &cout;
+	} else {
+		out = new ofstream(output_name.c_str());
+	}
+
+	int n; *in >> n;
 	for (int i = 0; i < n; ++i) {
 		bigint a;
-		cin >> a;
+		*in >> a;
 		gfp b;
 		to_gfp(b, a);
-		b.output(cout, false);
+		b.output(*out, false);
 	}
-	if (cin.fail())
+	if (in->fail())
 	{
-		cout.close();
-		unlink(output_name);
-		throw runtime_error("Failed to read " + string(input_name));
+		if(!use_stdout) {
+			((ofstream*)out)->close();
+			delete out;
+		}
+		unlink(output_name.c_str());
+		throw runtime_error("Failed to read input \"" + string(input_name)+"\"");
 	}
 
 	n = -(n % BUFFER_SIZE) + BUFFER_SIZE;
 	cerr << "Adding " << n << " zeros to match buffer size" << endl;
 	for (int i = 0; i < n; i++)
-		gfp(0).output(cout, false);
+		gfp(0).output(*out, false);
 	cerr << "Output written to " << output_name
 			<< ", copy to Player-Data/Private-Input-<playerno>" << endl;
 
-	cin.close();	
-	cout.close();
+	// Clean up file streams.
+	if(!use_stdin) {
+		((ifstream*)in)->close();
+		delete in;
+	}
+	if(!use_stdout) {
+		((ofstream*)out)->close();
+		delete out;
+	}
 	return 0;
 }
