@@ -122,7 +122,7 @@ The number of parties are counted from 0. As seen in the quick example, you can 
 
 SPDZ-2 provides covert security according to some parameter c (at least 2). A malicious adversary will get caught with probability 1/c. There is a linear correlation between c and the running time, that is, running with 2c takes twice as long as running with c. The default for c is 10.
 
-The program will generate every kind of randomness required by the online phase until you stop it. You can shut it down gracefully pressing Ctrl-c (or sending the interrupt signal `SIGINT`).
+The program will generate every kind of randomness required by the online phase until you stop it. You can shut it down gracefully pressing Ctrl-c (or sending the interrupt signal `SIGINT`), but only after an initial phase, the end of which is marked by the output `Starting to produce gf2n`. Note that the initial phase has been reported to take up to an hour.
 
 #### Benchmarking the MASCOT offline phase
 
