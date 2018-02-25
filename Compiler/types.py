@@ -2354,6 +2354,10 @@ class Matrix(object):
             value_type = _types[value_type]
         self.value_type = value_type
         self.address = Array(rows * columns, value_type, address).address
+        
+    def delete(self):
+        if program:
+            program.free(self.address, self.value_type.reg_type)
 
     def __getitem__(self, index):
         return Array(self.columns, self.value_type, \
@@ -2394,6 +2398,9 @@ class MultiArray(object):
                                  value_type)
         if len(sizes) < 2:
             raise CompilerError('Use Array')
+    
+    def delete(self):
+        self.array.delete()
 
     def __getitem__(self, index):
         return SubMultiArray(self.sizes[1:], self.value_type, \
@@ -2404,6 +2411,9 @@ class VectorArray(object):
         self.array = Array(length * vector_size, value_type, address)
         self.vector_size = vector_size
         self.value_type = value_type
+    
+    def delete(self):
+        self.array.delete()
 
     def __getitem__(self, index):
         return self.value_type.load_mem(self.array.address + \
@@ -2420,6 +2430,9 @@ class sfloatArray(Array):
         self.matrix = Matrix(length, 4, sint, address)
         self.length = length
         self.value_type = sfloat
+        
+    def delete(self):
+        self.matrix.delete()
 
     def __getitem__(self, index):
         if isinstance(index, slice):
@@ -2436,6 +2449,9 @@ class sfloatMatrix(Matrix):
         self.rows = rows
         self.columns = columns
         self.multi_array = MultiArray([rows, columns, 4], sint)
+        
+    def delete(self):
+        self.multi_array.delete()
 
     def __getitem__(self, index):
         return sfloatArray(self.columns, self.multi_array[index].address)
@@ -2443,6 +2459,7 @@ class sfloatMatrix(Matrix):
 class sfixArray(Array):
     def __init__(self, length, address=None):
         self.array = Array(length, sint, address)
+        self.address = self.array.address
         self.length = length
         self.value_type = sfix
 
@@ -2464,6 +2481,7 @@ class sfixMatrix(Matrix):
         self.rows = rows
         self.columns = columns
         self.multi_array = Matrix(rows, columns, sint, address)
+        self.address = self.multi_array.address
 
     def __getitem__(self, index):
         return sfixArray(self.columns, self.multi_array[index].address)
@@ -2611,6 +2629,12 @@ class MemFloat(_mem):
         self.p = MemValue(value.p)
         self.z = MemValue(value.z)
         self.s = MemValue(value.s)
+        
+    def delete(self):
+        self.v.delete()
+        self.p.delete()
+        self.z.delete()
+        self.s.delete()
 
     def write(self, *args):
         value = sfloat(*args)
@@ -2626,6 +2650,9 @@ class MemFix(_mem):
     def __init__(self, *args):
         value = sfix(*args)
         self.v = MemValue(value.v)
+        
+    def delete(self):
+        self.v.delete()
 
     def write(self, *args):
         value = sfix(*args)
