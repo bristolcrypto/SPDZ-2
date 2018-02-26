@@ -2481,7 +2481,9 @@ class sfixMatrix(Matrix):
         self.rows = rows
         self.columns = columns
         self.multi_array = Matrix(rows, columns, sint, address)
-        self.address = self.multi_array.address
+    
+    def delete(self):
+        self.multi_array.delete()
 
     def __getitem__(self, index):
         return sfixArray(self.columns, self.multi_array[index].address)
