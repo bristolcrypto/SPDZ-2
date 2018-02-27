@@ -2459,9 +2459,11 @@ class sfloatMatrix(Matrix):
 class sfixArray(Array):
     def __init__(self, length, address=None):
         self.array = Array(length, sint, address)
-        self.address = self.array.address
         self.length = length
         self.value_type = sfix
+        
+    def delete()
+        self.array.delete()
 
     def __getitem__(self, index):
         if isinstance(index, slice):
