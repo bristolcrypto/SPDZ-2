@@ -2356,8 +2356,7 @@ class Matrix(object):
         self.address = Array(rows * columns, value_type, address).address
         
     def delete(self):
-        if program:
-            program.free(self.address, self.value_type.reg_type)
+        Array.delete(self)
 
     def __getitem__(self, index):
         return Array(self.columns, self.value_type, \
@@ -2462,7 +2461,7 @@ class sfixArray(Array):
         self.length = length
         self.value_type = sfix
         
-    def delete()
+    def delete(self):
         self.array.delete()
 
     def __getitem__(self, index):
