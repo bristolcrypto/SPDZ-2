@@ -2353,10 +2353,11 @@ class Matrix(object):
         if value_type in _types:
             value_type = _types[value_type]
         self.value_type = value_type
-        self.address = Array(rows * columns, value_type, address).address
+        self.array = Array(rows * columns, value_type, address)
+        self.address = self.array.address
         
     def delete(self):
-        Array.delete(self)
+        self.array.delete()
 
     def __getitem__(self, index):
         return Array(self.columns, self.value_type, \
