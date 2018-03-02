@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _FFT_Data
 #define _FFT_Data
@@ -40,6 +40,8 @@ class FFT_Data
   typedef bigint S;
 
   void init(const Ring& Rg,const Zp_Data& PrD);
+
+  void init_field() const { gfp::init_field(prData.pr); }
 
   void pack(octetStream& o) const;
   void unpack(octetStream& o);

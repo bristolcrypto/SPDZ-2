@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * DataSetup.cpp
@@ -59,21 +59,13 @@ template <class FD>
 void PartSetup<FD>::generate_setup(int n_parties, int plaintext_length, int sec,
     int slack, bool round_up)
 {
+  sec = max(sec, 40);
   ::generate_setup(n_parties, plaintext_length, sec, params, FieldD,
       slack, round_up);
   params.set_sec(sec);
   pk = FHE_PK(params, FieldD.get_prime());
   sk = FHE_SK(params, FieldD.get_prime());
   calpha = Ciphertext(params);
-}
-
-template <>
-void DataSetup::generate_setup<gfp>(int n_parties, int plaintext_length, int sec,
-    int slack, bool write_output)
-{
-  setup_p.generate_setup(n_parties, plaintext_length, sec, slack, true);
-  if (write_output)
-    write_setup(true);
 }
 
 void DataSetup::write_setup(string dir, bool skip_2)
@@ -155,8 +147,8 @@ void DataSetup::read(Names& N, bool skip_2, string dir)
   cout << "Loaded the public keys etc" << endl;
 }
 
-template <>
-void DataSetup::fake<gfp>(vector<FHE_SK>& sks, vector<gfp>& alphais,
+template <class FD>
+void PartSetup<FD>::fake(vector<FHE_SK>& sks, vector<T>& alphais,
         int nplayers, bool distributed)
 {
   insecure("global key generation");
@@ -166,70 +158,71 @@ void DataSetup::fake<gfp>(vector<FHE_SK>& sks, vector<gfp>& alphais,
       cout << "Faking key generation with extra noise" << endl;
   PRNG G;
   G.ReSeed();
-  pk_p = FHE_PK(params_p, FTD.get_prime());
-  FHE_SK sk(params_p, FTD.get_prime());
-  calphap = Ciphertext(params_p);
-  sks.resize(nplayers, pk_p);
+  pk = FHE_PK(params, FieldD.get_prime());
+  FHE_SK sk(params, FieldD.get_prime());
+  calpha = Ciphertext(params);
+  sks.resize(nplayers, pk);
   alphais.resize(nplayers);
 
   if (distributed)
-      DistKeyGen::fake(pk_p, sks, FTD.get_prime(), nplayers);
+      DistKeyGen::fake(pk, sks, FieldD.get_prime(), nplayers);
   else
   {
-      Rq_Element sk = FHE_SK(pk_p).s();
+      Rq_Element sk = FHE_SK(pk).s();
       for (int i = 0; i < nplayers; i++)
       {
-          Rq_Element ski = pk_p.sample_secret_key(G);
+          Rq_Element ski = pk.sample_secret_key(G);
           sks[i].assign(ski);
           sk += ski;
       }
-      pk_p.KeyGen(sk, G, nplayers);
+      pk.KeyGen(sk, G, nplayers);
   }
 
   for (int i = 0; i < nplayers; i++)
     {
-      Plaintext<gfp,FFT_Data,bigint> m(FTD);
+      Plaintext_<FD> m(FieldD);
       m.randomize(G,Diagonal);
-      Ciphertext calphai = pk_p.encrypt(m);
-      calphap += calphai;
+      Ciphertext calphai = pk.encrypt(m);
+      calpha += calphai;
       alphais[i] = m.element(0);
     }
 }
 
-template <>
-void DataSetup::fake<gfp>(vector<DataSetup>& setups, int nplayers,
+template <class FD>
+void PartSetup<FD>::fake(vector<PartSetup<FD> >& setups, int nplayers,
         bool distributed)
 {
     vector<FHE_SK> sks;
-    vector<gfp> alphais;
-    fake<gfp>(sks, alphais, nplayers, distributed);
+    vector<T> alphais;
+    fake(sks, alphais, nplayers, distributed);
     setups.clear();
     setups.resize(nplayers, *this);
     for (int i = 0; i < nplayers; i++)
     {
-        setups[i].sk_p = sks[i];
-        setups[i].alphapi = alphais[i];
+        setups[i].sk = sks[i];
+        setups[i].alphai = alphais[i];
     }
 }
 
-void DataSetup::insecure_debug_keys(vector<DataSetup>& setups, int nplayers, bool simple_pk)
+template <class FD>
+void PartSetup<FD>::insecure_debug_keys(vector<PartSetup<FD> >& setups, int nplayers, bool simple_pk)
 {
     cout << "generating INSECURE keys for debugging" << endl;
     setups.clear();
-    Rq_Element zero(params_p, evaluation, evaluation),
-            one(params_p, evaluation, evaluation);
+    Rq_Element zero(params, evaluation, evaluation),
+            one(params, evaluation, evaluation);
     zero.assign_zero();
     one.assign_one();
     PRNG G;
     G.ReSeed();
     if (simple_pk)
-        pk_p.assign(zero, zero, zero, zero - one);
+        pk.assign(zero, zero, zero, zero - one);
     else
-        pk_p.KeyGen(one, G, nplayers);
+        pk.KeyGen(one, G, nplayers);
     setups.resize(nplayers, *this);
-    setups[0].sk_p.assign(one);
+    setups[0].sk.assign(one);
     for (int i = 1; i < nplayers; i++)
-        setups[i].sk_p.assign(zero);
+        setups[i].sk.assign(zero);
 }
 
 void DataSetup::output(int my_number, int nn, bool specific_dir)
@@ -260,41 +253,55 @@ void DataSetup::output(int my_number, int nn, bool specific_dir)
     write_mac_keys(dir, my_number, nn, alphapi, alpha2i);
 }
 
-template <>
-void DataSetup::pack<gfp>(octetStream& os)
+template <class FD>
+void PartSetup<FD>::pack(octetStream& os)
 {
-    params_p.pack(os);
-    FTD.pack(os);
-    pk_p.pack(os);
-    sk_p.pack(os);
-    calphap.pack(os);
-    alphapi.pack(os);
+    params.pack(os);
+    FieldD.pack(os);
+    pk.pack(os);
+    sk.pack(os);
+    calpha.pack(os);
+    alphai.pack(os);
+}
+
+template <class FD>
+void PartSetup<FD>::unpack(octetStream& os)
+{
+    params.unpack(os);
+    FieldD.unpack(os);
+    pk.unpack(os);
+    sk.unpack(os);
+    calpha.unpack(os);
+    alphai.unpack(os);
+    init_field();
 }
 
 template <>
-void DataSetup::unpack<gfp>(octetStream& os)
+void PartSetup<FFT_Data>::init_field()
 {
-    params_p.unpack(os);
-    FTD.unpack(os);
-    pk_p.unpack(os);
-    sk_p.unpack(os);
-    calphap.unpack(os);
-    alphapi.unpack(os);
-    gfp::init_field(FTD.get_prime());
+    gfp::init_field(FieldD.get_prime());
 }
 
-void DataSetup::check(int sec) const
+template <>
+void PartSetup<P2Data>::init_field()
 {
-    if (sec < params_p.secp())
-        throw runtime_error("security parameter for distributed decryption too big");
-    sk_p.check(params_p, pk_p, FTD.get_prime());
 }
 
-bool DataSetup::operator!=(const DataSetup& other)
+template <class FD>
+void PartSetup<FD>::check(int sec) const
 {
-    if (params_p != other.params_p or FTD != other.FTD or pk_p != other.pk_p
-            or sk_p != other.sk_p or calphap != other.calphap
-            or alphapi != other.alphapi)
+    sec = max(sec, 40);
+    if (abs(sec - params.secp()) > 2)
+        throw runtime_error("security parameters vary too much between protocol and distributed decryption");
+    sk.check(params, pk, FieldD.get_prime());
+}
+
+template <class FD>
+bool PartSetup<FD>::operator!=(const PartSetup<FD>& other)
+{
+    if (params != other.params or FieldD != other.FieldD or pk != other.pk
+            or sk != other.sk or calpha != other.calpha
+            or alphai != other.alphai)
         return true;
     else
         return false;

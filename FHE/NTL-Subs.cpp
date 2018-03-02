@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE/NTL-Subs.h"
@@ -12,6 +12,8 @@
 #include "FHE/NoiseBounds.h"
 
 #include "Tools/mkpath.h"
+
+#include "FHEOffline/Proof.h"
 
 #include <fstream>
 using namespace std;
@@ -41,11 +43,10 @@ template <>
 void generate_setup(int n_parties, int plaintext_length, int sec,
     FHE_Params& params, P2Data& P2D, int slack, bool round_up)
 {
-  if (sec != 40 or slack != 0 or round_up)
-    throw not_implemented();
   Ring R;
   bigint pr0,pr1;
-  SPDZ_Data_Setup_Char_2(R, P2D, pr0, pr1, n_parties, plaintext_length);
+  SPDZ_Data_Setup_Char_2(R, P2D, pr0, pr1, n_parties, plaintext_length, sec,
+      slack, round_up);
   params.set(R, {pr0, pr1});
 }
 
@@ -69,17 +70,19 @@ bool same_word_length(int l1, int l2)
   return l1 / 64 == l2 / 64;
 }
 
+template <>
 int generate_semi_setup(int plaintext_length, int sec,
-    bigint& p, FHE_Params& params, FFT_Data& FTD, bool round_up)
+    FHE_Params& params, FFT_Data& FTD, bool round_up)
 {
   int m = 1024;
   int lgp = plaintext_length;
+  bigint p;
   generate_prime(p, lgp, m);
   int lgp0, lgp1;
   while (true)
     {
       SemiHomomorphicNoiseBounds nb(p, phi_N(m), 1, sec,
-				    0, true);
+          numBits(NonInteractiveProof::slack(sec, phi_N(m))), true);
       bigint p1 = 2 * p * m, p0 = p;
       while (nb.min_p0(params.n_mults() > 0, p1) > p0)
         {
@@ -97,6 +100,33 @@ int generate_semi_setup(int plaintext_length, int sec,
           break;
         }
     }
+
+  int extra_slack = common_semi_setup(params, m, p, lgp0, lgp1, round_up);
+
+  FTD.init(params.get_ring(), p);
+  gfp::init_field(p);
+  return extra_slack;
+}
+
+template <>
+int generate_semi_setup(int plaintext_length, int sec,
+    FHE_Params& params, P2Data& P2D, bool round_up)
+{
+  if (params.n_mults() > 0)
+    throw runtime_error("only implemented for 0-level BGV");
+  gf2n::init_field(plaintext_length);
+  int m;
+  char_2_dimension(m, plaintext_length);
+  SemiHomomorphicNoiseBounds nb(2, phi_N(m), 1, sec,
+      numBits(NonInteractiveProof::slack(sec, phi_N(m))), true);
+  int lgp0 = numBits(nb.min_p0(false, 0));
+  int extra_slack = common_semi_setup(params, m, 2, lgp0, -1, round_up);
+  load_or_generate(P2D, params.get_ring());
+  return extra_slack;
+}
+
+int common_semi_setup(FHE_Params& params, int m, bigint p, int lgp0, int lgp1, bool round_up)
+{
   cout << "Need ciphertext modulus of length " << lgp0;
   if (params.n_mults() > 0)
     cout << "+" << lgp1;
@@ -123,12 +153,49 @@ int generate_semi_setup(int plaintext_length, int sec,
   ::init(R, m);
   bigint p0, p1 = 1;
   if (params.n_mults() > 0)
+  {
     generate_moduli(p0, p1, m, p, lgp0, lgp1);
+    params.set(R, {p0, p1});
+  }
   else
+  {
     generate_modulus(p0, m, p, lgp0);
-  params.set(R, {p0, p1});
-  FTD.init(R, p);
-  gfp::init_field(p);
+    params.set(R, {p0});
+  }
+  return extra_slack;
+}
+
+int finalize_lengths(int& lg2p0, int& lg2p1, int n, int m, int* lg2pi, bool round_up)
+{
+  if (n >= 2 and n <= 10)
+    cout << "Difference to suggestion for p0: " << lg2p0 - lg2pi[n - 2]
+        << ", for p1: " << lg2p1 - lg2pi[9 + n - 2] << endl;
+  cout << "p0 needs " << int(ceil(1. * lg2p0 / 64)) << " words" << endl;
+  cout << "p1 needs " << int(ceil(1. * lg2p1 / 64)) << " words" << endl;
+
+  int extra_slack = 0;
+  if (round_up)
+    {
+      int i = 0;
+      for (i = 0; i < 10; i++)
+        {
+          if (phi_N(m) < NoiseBounds::min_phi_m(lg2p0 + lg2p1 + 2 * i))
+            break;
+          if (not same_word_length(lg2p0 + i, lg2p0))
+            break;
+          if (not same_word_length(lg2p1 + i, lg2p1))
+            break;
+        }
+      i--;
+      extra_slack = 2 * i;
+      lg2p0 += i;
+      lg2p1 += i;
+      cout << "Rounding up to " << lg2p0 << "+" << lg2p1
+          << ", giving extra slack of " << extra_slack << " bits" << endl;
+    }
+
+  cout << "Total length: " << lg2p0 + lg2p1 << endl;
+
   return extra_slack;
 }
 
@@ -170,19 +237,9 @@ int SPDZ_Data_Setup_Char_p_Sub(Ring& R, bigint& pr0, bigint& pr1, int n,
 
   while (sec != -1)
     {
-      NoiseBounds nb(p, phi_N(m), n, sec, slack);
-      bigint min_p1 = nb.opt_p1();
-      bigint min_p0 = nb.min_p0(min_p1);
-      while (nb.min_p0(min_p0, min_p1) > min_p0)
-        {
-          min_p0 *= 2;
-          min_p1 *= 2;
-          cout << "increasing lengths: " << numBits(min_p0) << "/" << numBits(min_p1) << endl;
-        }
-      lg2p1 = numBits(min_p1);
-      lg2p0 = numBits(min_p0);
+      double phi_m_bound =
+              NoiseBounds(p, phi_N(m), n, sec, slack).optimize(lg2p0, lg2p1);
       cout << "Trying primes of length " << lg2p0 << " and " << lg2p1 << endl;
-      double phi_m_bound = nb.min_phi_m(lg2p0 + lg2p1);
       if (phi_N(m) < phi_m_bound)
         {
           int old_m = m;
@@ -194,36 +251,9 @@ int SPDZ_Data_Setup_Char_p_Sub(Ring& R, bigint& pr0, bigint& pr1, int n,
         break;
     }
 
-  if (n >= 2 and n <= 10)
-    cout << "Difference to suggestion for p0: " << lg2p0 - lg2pi[idx][0][n - 2]
-        << ", for p1: " << lg2p1 - lg2pi[idx][1][n - 2] << endl;
-  cout << "p0 needs " << int(ceil(1. * lg2p0 / 64)) << " words" << endl;
-  cout << "p1 needs " << int(ceil(1. * lg2p1 / 64)) << " words" << endl;
-
-  int extra_slack = 0;
-  if (round_up)
-    {
-      int i = 0;
-      for (i = 0; i < 10; i++)
-        {
-          if (phi_N(m) < NoiseBounds::min_phi_m(lg2p0 + lg2p1 + 2 * i))
-            break;
-          if (not same_word_length(lg2p0 + i, lg2p0))
-            break;
-          if (not same_word_length(lg2p1 + i, lg2p1))
-            break;
-        }
-      i--;
-      extra_slack = 2 * i;
-      lg2p0 += i;
-      lg2p1 += i;
-      cout << "Rounding up to " << lg2p0 << "+" << lg2p1
-          << ", giving extra slack of " << extra_slack << " bits" << endl;
-    }
-
-  cout << "Total length: " << lg2p0 + lg2p1 << endl;
-
   init(R,m);
+  int extra_slack = finalize_lengths(lg2p0, lg2p1, n, m, lg2pi[idx][0],
+      round_up);
   generate_moduli(pr0, pr1, m, p, lg2p0, lg2p1);
   return extra_slack;
 }
@@ -521,18 +551,8 @@ void init(P2Data& P2D,const Ring& Rg)
 /*
  * Create the FHE parameters
  */
-void SPDZ_Data_Setup_Char_2(Ring& R,P2Data& P2D,bigint& pr0,bigint& pr1,int n,int lg2)
+void char_2_dimension(int& m, int& lg2)
 {
-  int lg2pi[2][9]
-             = {  {70,70,70,70,70,70,70,70,70},
-                  {70,75,75,75,75,80,80,80,80}
-               };
-
-  cout << "Setting up parameters\n";
-  if (n<2 || n>10) { throw invalid_params(); }
-   
-  int m,lg2p0,lg2p1,ex;
-
   switch (lg2)
     { case -1:
         m=17;
@@ -546,13 +566,40 @@ void SPDZ_Data_Setup_Char_2(Ring& R,P2Data& P2D,bigint& pr0,bigint& pr1,int n,in
         lg2=40;
         break;
       default:
-        throw invalid_params();
+        throw runtime_error("field size not supported");
         break;
     }
+}
 
-  lg2p0=lg2pi[0][n-2];
-  lg2p1=lg2pi[1][n-2];
-  
+void SPDZ_Data_Setup_Char_2(Ring& R, P2Data& P2D, bigint& pr0, bigint& pr1,
+    int n, int lg2, int sec, int slack, bool round_up)
+{
+  int lg2pi[2][9]
+             = {  {70,70,70,70,70,70,70,70,70},
+                  {70,75,75,75,75,80,80,80,80}
+               };
+
+  cout << "Setting up parameters\n";
+  if ((n<2 || n>10) and sec == -1) { throw invalid_params(); }
+
+  int m,lg2p0,lg2p1,ex;
+
+  char_2_dimension(m, lg2);
+
+  if (sec == -1)
+  {
+    lg2p0=lg2pi[0][n-2];
+    lg2p1=lg2pi[1][n-2];
+  }
+  else
+  {
+    NoiseBounds(2, phi_N(m), n, sec, slack).optimize(lg2p0, lg2p1);
+    finalize_lengths(lg2p0, lg2p1, n, m, lg2pi[0], round_up);
+  }
+
+  if (NoiseBounds::min_phi_m(lg2p0 + lg2p1) > phi_N(m))
+    throw runtime_error("number of slots too small");
+
   cout << "m = " << m << endl;
   init(R,m);
 
@@ -580,7 +627,21 @@ void SPDZ_Data_Setup_Char_2(Ring& R,P2Data& P2D,bigint& pr0,bigint& pr1,int n,in
   cout << "\t\tpr1 mod 2^lg2m = " << pr1%(1<<lg2m) << endl;
 
   gf2n::init_field(lg2);
-  init(P2D,R);
+  load_or_generate(P2D, R);
+}
+
+void load_or_generate(P2Data& P2D, const Ring& R)
+{
+  try
+  {
+      P2D.load(R);
+  }
+  catch (...)
+  {
+      cout << "Loading failed" << endl;
+      init(P2D,R);
+      P2D.store(R);
+  }
 }
 
 

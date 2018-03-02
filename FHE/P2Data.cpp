@@ -1,7 +1,9 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE/P2Data.h"
+#include "Math/Setup.h"
+#include <fstream>
 
 
 void P2Data::forward(vector<int>& ans,const vector<gf2n_short>& a) const
@@ -62,6 +64,27 @@ void P2Data::check_dimensions() const
 }
 
 
+bool P2Data::operator!=(const P2Data& other) const
+{
+  return slots != other.slots or A != other.A or Ai != other.Ai;
+}
+
+void P2Data::pack(octetStream& o) const
+{
+  check_dimensions();
+  o.store(slots);
+  A.pack(o);
+  Ai.pack(o);
+}
+
+void P2Data::unpack(octetStream& o)
+{
+  o.get(slots);
+  A.unpack(o);
+  Ai.unpack(o);
+  check_dimensions();
+}
+
 ostream& operator<<(ostream& s,const P2Data& P2D)
 {
   P2D.check_dimensions();
@@ -78,4 +101,32 @@ istream& operator>>(istream& s,P2Data& P2D)
   s >> P2D.Ai;
   P2D.check_dimensions();
   return s;
+}
+
+string get_filename(const Ring& Rg)
+{
+  return (string) PREP_DIR + "P2D-" + to_string(gf2n::degree()) + "x"
+      + to_string(Rg.phi_m() / gf2n::degree());
+}
+
+void P2Data::load(const Ring& Rg)
+{
+  string filename = get_filename(Rg);
+  cout << "Loading from " << filename << endl;
+  ifstream s(filename);
+  octetStream os;
+  os.input(s);
+  if (s.eof() or s.fail())
+    throw runtime_error("cannot load P2Data");
+  unpack(os);
+}
+
+void P2Data::store(const Ring& Rg) const
+{
+  string filename = get_filename(Rg);
+  cout << "Storing in " << filename << endl;
+  ofstream s(filename);
+  octetStream os;
+  pack(os);
+  os.output(s);
 }

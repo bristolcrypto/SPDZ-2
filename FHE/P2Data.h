@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _P2Data
 #define _P2Data
@@ -24,7 +24,7 @@ class P2Data
   typedef int S;
 
   int num_slots() const { return slots; }
-  int degree() const { return A[0].size(); }
+  int degree() const { return A.size() ? A[0].size() : 0; }
   int phi_m() const { return A.size(); }
 
   void check_dimensions() const;
@@ -35,6 +35,19 @@ class P2Data
   void backward(vector<gf2n_short>& ans,const vector<int>& a) const;
 
   int get_prime() const { return 2; }
+
+  bool operator!=(const P2Data& other) const;
+
+  // no op because we require field to be initalized first
+  void init_field() const {}
+
+  void pack(octetStream& o) const;
+  void unpack(octetStream& o);
+
+  void load(const Ring& Rg);
+  void store(const Ring& Rg) const;
+
+  void load_or_generate(const Ring& Rg);
 
   friend ostream& operator<<(ostream& s,const P2Data& P2D);
   friend istream& operator>>(istream& s,P2Data& P2D);

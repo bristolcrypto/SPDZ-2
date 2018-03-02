@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #ifndef _myHNF
@@ -11,8 +11,16 @@ using namespace std;
 #include "Math/modp.h"
 
 typedef vector< vector<bigint> > matrix;
-typedef vector< vector<int> > imatrix;
 typedef vector< vector<modp> > modp_matrix;
+
+class imatrix : public vector< vector<int> >
+{
+public:
+    bool operator!=(const imatrix& other) const;
+
+    void pack(octetStream& o) const;
+    void unpack(octetStream& o);
+};
 
 /* Uses Algorithm 2.7 from Pohst-Zassenhaus to compute H and U st
 		H = HNF(A) = A*U

@@ -1,5 +1,11 @@
 The changelog explains changes pulled through from the private development repository. Bug fixes and small enchancements are committed between releases and not documented here.
 
+## 0.0.3 (Mar 2, 2018)
+
+- Added offline phases based on homomorphic encryption, used in the [SPDZ-2 paper](https://eprint.iacr.org/2012/642) and the [Overdrive paper](https://eprint.iacr.org/2017/1230).
+- On macOS, the minimum requirement is now Sierra.
+- Compilation with LLVM/clang is now possible (tested with 3.8).
+
 ## 0.0.2 (Sep 13, 2017)
 
 ### Support sockets based external client input and output to a SPDZ MPC program.

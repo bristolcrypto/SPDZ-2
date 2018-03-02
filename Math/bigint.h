@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _bigint
 #define _bigint
@@ -69,7 +69,7 @@ public:
   void pack(octetStream& os) const { os.store(*this); }
   void unpack(octetStream& os)     { os.get(*this); };
 
-  size_t report_size(ReportType type);
+  size_t report_size(ReportType type) const;
 };
 
 

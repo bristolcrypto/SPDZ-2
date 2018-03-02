@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #include "Zp_Data.h"
 #include "modp.h"
@@ -90,7 +90,7 @@ void to_bigint(bigint& ans,const modp& x,const Zp_Data& ZpD,bool reduce)
       mpz_realloc(a, ZpD.t);
   if (ZpD.montgomery)
     { mp_limb_t one[MAX_MOD_SZ];
-      inline_mpn_zero(one,ZpD.t);
+      inline_mpn_zero(one,MAX_MOD_SZ);
       one[0]=1;
       ZpD.Mont_Mult(a->_mp_d,x.x,one);
     }

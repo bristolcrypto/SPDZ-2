@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "Tools/random.h"
@@ -196,8 +196,16 @@ bigint PRNG::randomBnd(const bigint& B, bool positive)
 
 void PRNG::randomBnd(bigint& x, const bigint& B, bool positive)
 {
+  int i = 0;
   do
+    {
       get_bigint(x, numBits(B), true);
+      if (i++ > 1000)
+        {
+          cout << x << " - " << B << " = " << x - B << endl;
+          throw runtime_error("bounded randomness error");
+        }
+    }
   while (x >= B);
   if (!positive)
     {
@@ -218,4 +226,17 @@ void PRNG::get_bigint(bigint& res, int n_bits, bool positive)
   bigintFromBytes(res, bytes, n_bytes);
   if (not positive and (get_bit()))
     mpz_neg(res.get_mpz_t(), res.get_mpz_t());
+}
+
+void PRNG::get(bigint& res, int n_bits, bool positive)
+{
+  get_bigint(res, n_bits, positive);
+}
+
+void PRNG::get(int& res, int n_bits, bool positive)
+{
+  res = get_uint();
+  res &= (1 << n_bits) - 1;
+  if (positive and get_bit())
+    res = -res;
 }

@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _timer
 #define _timer
@@ -11,19 +11,7 @@
 
 long long timeval_diff(struct timeval *start_time, struct timeval *end_time);
 double timeval_diff_in_seconds(struct timeval *start_time, struct timeval *end_time);
-
-// no clock_gettime() on OS X
-#ifdef __MACH__
-#define timespec timeval
-#define clockid_t int
-#define CLOCK_MONOTONIC 0
-#define CLOCK_PROCESS_CPUTIME_ID 0
-#define CLOCK_THREAD_CPUTIME_ID 0
-#define timespec_diff timeval_diff
-#define clock_gettime(x,y) gettimeofday(y,0)
-#else
 long long timespec_diff(struct timespec *start_time, struct timespec *end_time);
-#endif
 
 class Timer
 {

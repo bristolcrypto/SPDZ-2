@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _Player
 #define _Player
@@ -44,23 +44,29 @@ public:
 class Names
 {
   vector<string> names;
+  vector<int> ports;
   int nplayers;
   int portnum_base;
   int player_no;
 
   CommsecKeysPackage *keys;
 
-  void setup_names(const char *servername);
+  int default_port(int playerno) { return portnum_base + playerno; }
+  void setup_ports();
+
+  void setup_names(const char *servername, int my_port);
 
   void setup_server();
 
   public:
 
+  static const int DEFAULT_PORT = -1;
+
   mutable ServerSocket* server;
 
-  void init(int player,int pnb,const char* servername);
-  Names(int player,int pnb,const char* servername)
-    { init(player,pnb,servername); }
+  void init(int player,int pnb,int my_port,const char* servername);
+  Names(int player,int pnb,int my_port,const char* servername)
+    { init(player,pnb,my_port,servername); }
   // Set up names when we KNOW who we are going to be using before hand
   void init(int player,int pnb,vector<octet*> Nms);
   Names(int player,int pnb,vector<octet*> Nms)
@@ -116,7 +122,7 @@ protected:
   vector<int> sockets;
   int send_to_self_socket;
 
-  void setup_sockets(const vector<string>& names,int portnum_base,int id_base,ServerSocket& server);
+  void setup_sockets(const vector<string>& names,const vector<int>& ports,int id_base,ServerSocket& server);
 
   int nplayers;
 

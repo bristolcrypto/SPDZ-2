@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "sockets.h"
@@ -61,7 +61,7 @@ void set_up_server_socket(sockaddr_in& dest,int& consocket,int& main_socket,int 
    */
   fl=1;
   while (fl!=0)
-    { fl=bind(main_socket, (struct sockaddr *)&serv, sizeof(struct sockaddr));
+    { fl=::bind(main_socket, (struct sockaddr *)&serv, sizeof(struct sockaddr));
       if (fl != 0)
         { cerr << "Binding to socket on " << my_name << ":" << Portnum << " failed, trying again in a second ..." << endl;
           sleep(1);

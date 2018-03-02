@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _FHE_Keys
 #define _FHE_Keys
@@ -126,6 +126,9 @@ class FHE_PK
   void encrypt(Ciphertext& c, const Plaintext<gfp,FFT_Data,bigint>& mess, const Random_Coins& rc) const;
   void encrypt(Ciphertext& c, const Plaintext<gfp,PPData,bigint>& mess, const Random_Coins& rc) const;
   void encrypt(Ciphertext& c, const Plaintext<gf2n_short,P2Data,int>& mess, const Random_Coins& rc) const;
+
+  template <class S>
+  void encrypt(Ciphertext& c, const vector<S>& mess, const Random_Coins& rc) const;
 
   void quasi_encrypt(Ciphertext& c, const Rq_Element& mess, const Random_Coins& rc) const;
 

@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * NoiseBound.h
@@ -53,6 +53,7 @@ public:
     bigint min_p1();
     bigint opt_p1();
     bigint opt_p0() { return min_p0(opt_p1()); }
+    double optimize(int& lg2p0, int& lg2p1);
 };
 
 #endif /* FHE_NOISEBOUNDS_H_ */

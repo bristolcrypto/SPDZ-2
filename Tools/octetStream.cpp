@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include <fcntl.h>
@@ -315,6 +315,20 @@ void octetStream::decrypt(const octet* key)
     throw Processor_Error("octetStream decryption failed!");
   }
   rewind_write_head(crypto_box_NONCEBYTES + crypto_secretbox_MACBYTES);
+}
+
+void octetStream::input(istream& s)
+{
+  size_t size;
+  s.read((char*)&size, sizeof(size));
+  resize_precise(size);
+  s.read((char*)data, size);
+}
+
+void octetStream::output(ostream& s)
+{
+  s.write((char*)&len, sizeof(len));
+  s.write((char*)data, len);
 }
 
 ostream& operator<<(ostream& s,const octetStream& o)

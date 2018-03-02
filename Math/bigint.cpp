@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "bigint.h"
@@ -102,7 +102,7 @@ bigint::bigint(const gfp& x)
 }
 
 
-size_t bigint::report_size(ReportType type)
+size_t bigint::report_size(ReportType type) const
 {
   size_t res = 0;
   if (type != MINIMAL)

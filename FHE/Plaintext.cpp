@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE/Plaintext.h"
@@ -278,6 +278,8 @@ void Plaintext_<FFT_Data>::randomize(PRNG& G, bigint B, bool Diag, bool binary, 
 {
   if (Diag or binary)
     throw not_implemented();
+  if (B == 0)
+    throw runtime_error("cannot randomize modulo 0");
 
   allocate(t);
   switch (t)
@@ -296,8 +298,8 @@ void Plaintext_<FFT_Data>::randomize(PRNG& G, bigint B, bool Diag, bool binary, 
 }
 
 
-template<>
-void Plaintext<gfp,FFT_Data,bigint>::randomize(PRNG& G, int n_bits, bool Diag, bool binary, PT_Type t)
+template<class T,class FD,class S>
+void Plaintext<T,FD,S>::randomize(PRNG& G, int n_bits, bool Diag, bool binary, PT_Type t)
 {
   if (Diag or binary)
     throw not_implemented();
@@ -307,7 +309,7 @@ void Plaintext<gfp,FFT_Data,bigint>::randomize(PRNG& G, int n_bits, bool Diag, b
   {
     case Polynomial:
       for (int i = 0; i < n_slots; i++)
-        G.get_bigint(b[i], n_bits, false);
+        G.get(b[i], n_bits, false);
       break;
     default:
       throw not_implemented();
@@ -387,9 +389,9 @@ void Plaintext<T,FD,S>::assign_one(PT_Type t)
 }
 
 
-template<>
-Plaintext<gfp,FFT_Data,bigint>& Plaintext<gfp, FFT_Data, bigint>::operator+=(
-    const Plaintext<gfp, FFT_Data, bigint>& y)
+template<class T,class FD,class S>
+Plaintext<T,FD,S>& Plaintext<T,FD,S>::operator+=(
+    const Plaintext<T,FD,S>& y)
 {
   if (Field_Data!=y.Field_Data)  { throw field_mismatch(); }
 
@@ -689,17 +691,17 @@ bool Plaintext<T,FD,S>::equals(const Plaintext<T,FD,S>& x) const
 
 
 
-template <>
-void Plaintext<gfp, FFT_Data, bigint>::pack(octetStream& o) const
+template <class T,class FD,class S>
+void Plaintext<T,FD,S>::pack(octetStream& o) const
 {
   to_poly();
   o.store((unsigned int)b.size());
   for (unsigned int i = 0; i < b.size(); i++)
-    b[i].pack(o);
+    o.store(b[i]);
 }
 
-template <>
-void Plaintext<gfp, FFT_Data, bigint>::unpack(octetStream& o)
+template <class T,class FD,class S>
+void Plaintext<T,FD,S>::unpack(octetStream& o)
 {
   type = Polynomial;
   unsigned int size;
@@ -708,7 +710,7 @@ void Plaintext<gfp, FFT_Data, bigint>::unpack(octetStream& o)
   if (size != b.size())
     throw length_error("unexpected length received");
   for (unsigned int i = 0; i < b.size(); i++)
-    b[i].unpack(o);
+    o.get(b[i]);
 }
 
 

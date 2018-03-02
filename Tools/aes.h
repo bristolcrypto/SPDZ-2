@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef __AES_H
 #define __AES_H
@@ -50,7 +50,9 @@ void aes_128_encrypt( octet* C, const octet* M,const octet* RK );
 void aes_192_encrypt( octet* C, const octet* M,const octet* RK );
 void aes_256_encrypt( octet* C, const octet* M,const octet* RK );
 
+#ifndef __clang__
 __attribute__((optimize("unroll-loops")))
+#endif
 inline __m128i aes_128_encrypt(__m128i in, const octet* key)
 { __m128i& tmp = in;
   tmp = _mm_xor_si128 (tmp,((__m128i*)key)[0]);
@@ -62,7 +64,9 @@ inline __m128i aes_128_encrypt(__m128i in, const octet* key)
 }
 
 template <int N>
+#ifndef __clang__
 __attribute__((optimize("unroll-loops")))
+#endif
 inline void ecb_aes_128_encrypt(__m128i* out, __m128i* in, const octet* key)
 {
     __m128i tmp[N];

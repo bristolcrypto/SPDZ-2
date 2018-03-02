@@ -1,4 +1,4 @@
-(C) 2017 University of Bristol. See License.txt
+(C) 2018 University of Bristol. See License.txt
 
 Suppose we want to add 2 integers mod p in clear, where p has 128 bits and compute over 2 parties inputs: P0, P1.
 

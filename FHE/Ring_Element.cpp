@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE/Ring_Element.h"
@@ -227,7 +227,7 @@ istream& operator>>(istream& s, Ring_Element& e)
   else if (ch == 'E')
       rep = evaluation;
   else
-    { throw IO_Error("Error reading Ring_Element : ch="+(char)(ch)); }
+    { throw IO_Error("Error reading Ring_Element : ch="+to_string((char)(ch))); }
   e.rep = rep;
   ch = s.peek();
   while (isspace(ch))

@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * Producer.cpp
@@ -22,8 +22,8 @@ template <class T, class FD, class S>
 TripleProducer<T, FD, S>::TripleProducer(const FD& FieldD,
     int my_num, int output_thread, bool write_output, string dir) :
     Producer<FD>(output_thread, write_output),
-    i(FieldD.num_slots()), values({ FieldD, FieldD, FieldD }),
-    macs({ FieldD, FieldD, FieldD }), ai(values[0]), bi(values[1]),
+    i(FieldD.num_slots()), values{ FieldD, FieldD, FieldD },
+    macs{ FieldD, FieldD, FieldD }, ai(values[0]), bi(values[1]),
     ci(values[2]), gam_ai(macs[0]), gam_bi(macs[1]), gam_ci(macs[2])
 {
   this->dir = dir;
@@ -41,8 +41,8 @@ template <class FD>
 TupleProducer<FD>::TupleProducer(const FD& FieldD,
     int output_thread, bool write_output) :
     Producer<FD>(output_thread, write_output),
-    i(FieldD.num_slots()), values({ FieldD, FieldD }),
-    macs({ FieldD, FieldD })
+    i(FieldD.num_slots()), values{ FieldD, FieldD },
+    macs{ FieldD, FieldD }
 {
 }
 

@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _Ciphertext
 #define _Ciphertext
@@ -66,7 +66,7 @@ class Ciphertext
   friend void mul(Ciphertext& ans,const Ciphertext& c0,const Ciphertext& c1,const FHE_PK& pk);
   template<class T,class FD,class S> friend void mul(Ciphertext& ans,const Plaintext<T,FD,S>& a,const Ciphertext& c);
   template<class T,class FD,class S> friend void mul(Ciphertext& ans,const Ciphertext& c,const Plaintext<T,FD,S>& a)
-     { mul(ans,a,c); }
+     { ::mul(ans,a,c); }
 
   void mul(const Ciphertext& c, const Rq_Element& a);
 

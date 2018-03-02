@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #include "Processor/Machine.h"
 #include "Math/Setup.h"
@@ -44,6 +44,15 @@ int main(int argc, const char** argv)
           "Port number base to attempt to start connections from (default: 5000)", // Help description.
           "-pn", // Flag token.
           "--portnumbase" // Flag token.
+    );
+    opt.add(
+          "", // Default.
+          0, // Required?
+          1, // Number of args expected.
+          0, // Delimiter if expecting multiple args.
+          "Port to listen on (default: port number base + player number)", // Help description.
+          "-mp", // Flag token.
+          "--my-port" // Flag token.
     );
     opt.add(
           "localhost", // Default.
@@ -178,6 +187,7 @@ int main(int argc, const char** argv)
     string memtype, hostname, ipFileName;
     int lg2, lgp, pnbase, opening_sum, max_broadcast;
     int p2pcommsec;
+    int my_port;
 
     opt.get("--portnumbase")->getInt(pnbase);
     opt.get("--lgp")->getInt(lgp);
@@ -189,6 +199,11 @@ int main(int argc, const char** argv)
     opt.get("--max-broadcast")->getInt(max_broadcast);
     opt.get("--player-to-player-commsec")->getInt(p2pcommsec);
 
+    ez::OptionGroup* mp_opt = opt.get("--my-port");
+    if (mp_opt->isSet)
+      mp_opt->getInt(my_port);
+    else
+      my_port = Names::DEFAULT_PORT;
 
     int mynum;
     sscanf((*allArgs[1]).c_str(), "%d", &mynum);
@@ -205,9 +220,11 @@ int main(int argc, const char** argv)
 
     Names playerNames;
     if (ipFileName.size() > 0) {
+      if (my_port != Names::DEFAULT_PORT)
+        throw runtime_error("cannot set port number when using IP file");
       playerNames.init(playerno, pnbase, ipFileName);
     } else {
-      playerNames.init(playerno, pnbase, hostname.c_str());
+      playerNames.init(playerno, pnbase, my_port, hostname.c_str());
     }
     playerNames.set_keys(keys);
         

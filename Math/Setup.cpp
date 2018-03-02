@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "Math/Setup.h"
@@ -97,6 +97,9 @@ void generate_online_setup(ofstream& outf, string dirname, bigint& p, int lgp, i
 
 void write_online_setup(ofstream& outf, string dirname, const bigint& p, int lg2)
 {
+  if (p == 0)
+    throw runtime_error("prime cannot be 0");
+
   stringstream ss;
   ss << dirname;
   cout << "Writing to file in " << ss.str() << endl;

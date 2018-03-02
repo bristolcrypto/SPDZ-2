@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "Networking/sockets.h"
@@ -46,7 +46,9 @@ void Server::get_name(int num)
   // Receive name sent by client (legacy) - not used here
   octet my_name[512];
   receive(socket_num[num],my_name,512);
-  cerr << "Player " << num << " sent name (info only) " << my_name << endl;
+  receive(socket_num[num],(octet*)&ports[num],4);
+  cerr << "Player " << num << " sent (IP for info only) " << my_name << ":"
+      << ports[num] << endl;
 
   // Get client IP
   get_ip(num);
@@ -60,7 +62,10 @@ void Server::send_names(int num)
    */
   send(socket_num[num],nmachines);
   for (int i=0; i<nmachines; i++)
-    { send(socket_num[num],names[i],512); }
+    {
+      send(socket_num[num],names[i],512);
+      send(socket_num[num],(octet*)&ports[i],4);
+    }
 }
 
 
@@ -92,6 +97,7 @@ void Server::start()
   int i;
 
   names.resize(nmachines);
+  ports.resize(nmachines);
 
   /* Set up the sockets */
   socket_num.resize(nmachines);
@@ -155,6 +161,6 @@ Server* Server::start_networking(Names& N, int my_num, int nplayers,
       pthread_create(&thread, 0, Server::start_in_thread,
           server = new Server(nplayers, portnum));
     }
-  N.init(my_num, portnum, hostname.c_str());
+  N.init(my_num, portnum, Names::DEFAULT_PORT, hostname.c_str());
   return server;
 }

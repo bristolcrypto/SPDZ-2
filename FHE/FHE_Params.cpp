@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE_Params.h"
@@ -10,8 +10,8 @@
 void FHE_Params::set(const Ring& R,
                      const vector<bigint>& primes,double r,int hwt)
 {
-  if (primes.size() < FFTData.size())
-    throw runtime_error("not enough primes");
+  if (primes.size() != FFTData.size())
+    throw runtime_error("wrong number of primes");
 
   for (size_t i = 0; i < FFTData.size(); i++)
     FFTData[i].init(R,primes[i]);
@@ -26,6 +26,8 @@ void FHE_Params::set_sec(int sec)
   sec_p=sec;
   Bval=1;  Bval=Bval<<sec_p;
   Bval=FFTData[0].get_prime()/(2*(1+Bval));
+  if (Bval == 0)
+    throw runtime_error("distributed decryption bound is zero");
 }
 
 bigint FHE_Params::Q() const
@@ -38,6 +40,7 @@ bigint FHE_Params::Q() const
 
 void FHE_Params::pack(octetStream& o) const
 {
+  o.store(FFTData.size());
   for(auto& fd: FFTData)
     fd.pack(o);
   Chi.pack(o);
@@ -47,6 +50,9 @@ void FHE_Params::pack(octetStream& o) const
 
 void FHE_Params::unpack(octetStream& o)
 {
+  size_t size;
+  o.get(size);
+  FFTData.resize(size);
   for (auto& fd : FFTData)
     fd.unpack(o);
   Chi.unpack(o);

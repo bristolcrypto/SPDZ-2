@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE/Matrix.h"
@@ -322,6 +322,37 @@ void pinv(imatrix& Ai,const imatrix& B)
    }
 }
 
+
+bool imatrix::operator!=(const imatrix& other) const
+{
+  if (size() != other.size())
+    return true;
+  for (size_t i = 0; i < size(); i++)
+  {
+    if (at(i).size() != other[i].size())
+      return true;
+    for (size_t j = 0; j < at(i).size(); j++)
+      if (at(i)[j] != other[i][j])
+        return true;
+  }
+  return false;
+}
+
+void imatrix::pack(octetStream& o) const
+{
+  o.store(size());
+  for (auto& x : *this)
+    o.store(x);
+}
+
+void imatrix::unpack(octetStream& o)
+{
+  size_t size;
+  o.get(size);
+  resize(size);
+  for (auto& x : *this)
+    o.get(x);
+}
 
 ostream& operator<<(ostream& s,const imatrix& A)
 {

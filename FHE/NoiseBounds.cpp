@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * NoiseBound.cpp
@@ -6,13 +6,14 @@
  */
 
 #include <FHE/NoiseBounds.h>
+#include "FHEOffline/Proof.h"
 #include <math.h>
 
 
 SemiHomomorphicNoiseBounds::SemiHomomorphicNoiseBounds(const bigint& p,
         int phi_m, int n, int sec, int slack_param, bool extra_h, double sigma, int h) :
         p(p), phi_m(phi_m), n(n), sec(sec),
-        slack(slack_param), sigma(sigma), h(h)
+        slack(numBits(Proof::slack(slack_param, sec, phi_m))), sigma(sigma), h(h)
 {
     h += extra_h * sec;
     B_clean = (phi_m * p / 2
@@ -108,8 +109,25 @@ bigint NoiseBounds::opt_p1()
     b = -2 * a * min_p1();
     c = -n * B_clean * (2 * B_scale + 1) * min_p1() + n * n * B_scale * B_scale;
     // solve
-    bigint res = (-b + sqrt(b * b - 4 * a * c)) / (2 * a);
+    mpf_class s = (-b + sqrt(b * b - 4 * a * c)) / (2 * a);
+    bigint res = ceil(s);
     cout << "Optimal p1 vs minimal: " << numBits(res) << "/"
             << numBits(min_p1()) << endl;
     return res;
+}
+
+double NoiseBounds::optimize(int& lg2p0, int& lg2p1)
+{
+    bigint min_p1 = opt_p1();
+    bigint min_p0 = this->min_p0(min_p1);
+    while (this->min_p0(min_p0, min_p1) > min_p0)
+      {
+        min_p0 *= 2;
+        min_p1 *= 2;
+        cout << "increasing lengths: " << numBits(min_p0) << "/"
+            << numBits(min_p1) << endl;
+      }
+    lg2p1 = numBits(min_p1);
+    lg2p0 = numBits(min_p0);
+    return min_phi_m(lg2p0 + lg2p1);
 }

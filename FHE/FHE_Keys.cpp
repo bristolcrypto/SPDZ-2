@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHE_Keys.h"
@@ -54,7 +54,8 @@ void FHE_PK::KeyGen(Rq_Element& sk, PRNG& G, int noise_boost)
   mul(e0,e0,PK.pr);
   add(PK.b0,PK.b0,e0);
 
-  PK.check_noise(PK.b0 - PK.a0 * sk, true);
+  // strict check not working for GF(2^n)
+  PK.check_noise(PK.b0 - PK.a0 * sk, false);
 
   if (params->n_mults() > 0)
     {
@@ -131,11 +132,8 @@ void FHE_PK::encrypt(Ciphertext& c,
   if (&rc.get_params()!=params) { throw params_mismatch(); }
   if (pr==2)                    { throw pr_mismatch(); }
 
-  Rq_Element mm((*params).FFTD(),polynomial,polynomial);
   mess.to_poly();
-  mm.from_vec(mess.get_poly());
-
-  quasi_encrypt(c,mm,rc);
+  encrypt(c, mess.get_poly(), rc);
 }
 
 
@@ -148,12 +146,19 @@ void FHE_PK::encrypt(Ciphertext& c,
   if (&rc.get_params()!=params) { throw params_mismatch(); }
   if (pr!=2)                    { throw pr_mismatch(); }
 
-  Rq_Element mm((*params).FFTD(),polynomial,polynomial);
   mess.to_poly();
-  mm.from_vec(mess.get_poly());
-
-  quasi_encrypt(c,mm,rc);
+  encrypt(c, mess.get_poly(), rc);
 }
+
+template <class S>
+void FHE_PK::encrypt(Ciphertext& c, const vector<S>& mess,
+    const Random_Coins& rc) const
+{
+  Rq_Element mm((*params).FFTD(),polynomial,polynomial);
+  mm.from_vec(mess);
+  quasi_encrypt(c, mm, rc);
+}
+
 void FHE_PK::quasi_encrypt(Ciphertext& c,
                            const Rq_Element& mess,const Random_Coins& rc) const
 {
@@ -362,10 +367,17 @@ template Ciphertext FHE_PK::encrypt(const Plaintext_<FFT_Data>& mess,
 template Ciphertext FHE_PK::encrypt(const Plaintext_<FFT_Data>& mess) const;
 template Ciphertext FHE_PK::encrypt(const Plaintext_<P2Data>& mess) const;
 
+template void FHE_PK::encrypt(Ciphertext& c, const vector<int>& mess,
+    const Random_Coins& rc) const;
+template void FHE_PK::encrypt(Ciphertext& c, const vector<bigint>& mess,
+    const Random_Coins& rc) const;
+
 template Plaintext_<FFT_Data> FHE_SK::decrypt(const Ciphertext& c,
         const FFT_Data& FieldD);
 template Plaintext_<P2Data> FHE_SK::decrypt(const Ciphertext& c,
         const P2Data& FieldD);
 
 template void FHE_SK::decrypt_any(Plaintext_<FFT_Data>& res,
+        const Ciphertext& c);
+template void FHE_SK::decrypt_any(Plaintext_<P2Data>& res,
         const Ciphertext& c);

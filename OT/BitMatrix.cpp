@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * BitMatrix.cpp
@@ -41,21 +41,27 @@ public:
     void print();
 };
 
-__attribute__((optimize("unroll-loops")))
+#ifdef __clang__
+#define UNROLL_LOOPS
+#else
+#define UNROLL_LOOPS __attribute__((optimize("unroll-loops")))
+#endif
+
+UNROLL_LOOPS
 inline void matrix16x8::input(square128& input, int x, int y)
 {
     for (int l = 0; l < 16; l++)
         rows[l] = input.bytes[16*x+l][y];
 }
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void square16::input(square128& input, int x, int y)
 {
     for (int i = 0; i < 2; i++)
         halves[i].input(input, x, 2 * y + i);
 }
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void matrix16x8::transpose(square128& output, int x, int y)
 {
     for (int j = 0; j < 8; j++)
@@ -68,7 +74,7 @@ inline void matrix16x8::transpose(square128& output, int x, int y)
     }
 }
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void square16::transpose(square128& output, int x, int y)
 {
     for (int i = 0; i < 2; i++)
@@ -94,21 +100,21 @@ public:
     void transpose(square128& output, int x, int y);
 };
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void matrix32x8::input(square128& input, int x, int y)
 {
     for (int l = 0; l < 32; l++)
         rows[l] = input.bytes[32*x+l][y];
 }
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void square32::input(square128& input, int x, int y)
 {
     for (int i = 0; i < 4; i++)
         quarters[i].input(input, x, 4 * y + i);
 }
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void matrix32x8::transpose(square128& output, int x, int y)
 {
     for (int j = 0; j < 8; j++)
@@ -121,7 +127,7 @@ inline void matrix32x8::transpose(square128& output, int x, int y)
     }
 }
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 inline void square32::transpose(square128& output, int x, int y)
 {
     for (int i = 0; i < 4; i++)
@@ -138,7 +144,7 @@ typedef square16 subsquare;
 #define N_SUBSQUARES 8
 #endif
 
-__attribute__((optimize("unroll-loops")))
+UNROLL_LOOPS
 void square128::transpose()
 {
     for (int j = 0; j < N_SUBSQUARES; j++)
@@ -557,7 +563,7 @@ void BitMatrix::to(vector<BitVector>& output)
 }
 
 BitMatrixSlice::BitMatrixSlice(BitMatrix& bm, size_t start, size_t size) :
-        bm(bm), start(start), size(size)
+        bm(bm), start(start)
 {
     end = start + size;
     if (end > bm.squares.size())

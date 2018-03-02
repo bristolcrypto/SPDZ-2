@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _FHE_Params
 #define _FHE_Params
@@ -62,6 +62,7 @@ class FHE_Params
   DiscreteGauss get_DG() const       { return Chi.get_DG(); }
 
   int phi_m() const                  { return FFTData[0].phi_m(); }
+  const Ring& get_ring()             { return FFTData[0].get_R(); }
 
   void pack(octetStream& o) const;
   void unpack(octetStream& o);

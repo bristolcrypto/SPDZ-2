@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _EncCommit
 #define _EncCommit
@@ -88,7 +88,7 @@ class EncCommit : public EncCommitBase<T,FD,S>
   ~EncCommit();
 
   // for compatibility
-  EncCommit(const PlayerBase& P, const FHE_PK& pk, const FFT_Data& FTD,
+  EncCommit(const PlayerBase& P, const FHE_PK& pk, const FD& FTD,
             map<string, Timer>& timers, const MachineBase& machine,
             int thread_num) :
             EncCommit()

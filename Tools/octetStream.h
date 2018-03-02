@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _octetStream
 #define _octetStream
@@ -145,6 +145,9 @@ class octetStream
   void decrypt(const octet* key);
 
   void exchange(int send_socket, int receive_socket);
+
+  void input(istream& s);
+  void output(ostream& s);
 
   friend ostream& operator<<(ostream& s,const octetStream& o);
   friend class PRNG;

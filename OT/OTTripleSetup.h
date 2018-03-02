@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef OT_TRIPLESETUP_H_
 #define OT_TRIPLESETUP_H_
@@ -23,7 +23,6 @@ class OTTripleSetup
     int nparties;
     int my_num;
     int nbase;
-    bool real_OTs;
 
 public:
     map<string,Timer> timers;
@@ -36,7 +35,7 @@ public:
     int get_base_receiver_input(int i) { return base_receiver_inputs[i]; }
 
     OTTripleSetup(Names& N, bool real_OTs)
-        : nparties(N.num_players()), my_num(N.my_num()), nbase(128), real_OTs(real_OTs)
+        : nparties(N.num_players()), my_num(N.my_num()), nbase(128)
     {
         base_receiver_inputs.resize(nbase);
         players.resize(nparties - 1);

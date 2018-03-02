@@ -1,4 +1,4 @@
-# (C) 2017 University of Bristol. See License.txt
+# (C) 2018 University of Bristol. See License.txt
 
 program.bit_length = 80
 print "program.bit_length: ", program.bit_length

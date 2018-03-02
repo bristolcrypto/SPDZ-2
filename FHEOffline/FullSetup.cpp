@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "FHEOffline/FullSetup.h"
@@ -63,5 +63,7 @@ void get_setup(FHE_Params& params_p,FFT_Data& FTD,
   if (!skip_2)
     {
       params_2.set(R2,{p02,p12});
+      cout << "GF(2^" << lg2 << "): log(p0) = " << numBits(p02)
+          << ", log(p1) = " << numBits(p12) << endl;
     }
 }

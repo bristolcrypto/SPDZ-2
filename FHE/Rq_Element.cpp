@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #include "Rq_Element.h"
 #include "Exceptions/Exceptions.h"
@@ -143,7 +143,7 @@ istream& operator>>(istream& s, Rq_Element& a)
   if (a.lev != 0)
   {
       if (ch != ',')
-          { throw IO_Error("bad Rq_Element input: no ',' ch = " +(char)ch); }
+          { throw IO_Error("bad Rq_Element input: no ',' ch = " +to_string((char)ch)); }
 
       if (!(s >> a.a[1]))
           { throw IO_Error("bad Rq_Element input for a1"); }

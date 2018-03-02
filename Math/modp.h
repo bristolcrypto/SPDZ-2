@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _Modp
 #define _Modp
@@ -21,6 +21,8 @@
 
 #include "Math/bigint.h"
 #include "Math/Zp_Data.h"
+
+void to_bigint(bigint& ans,const modp& x,const Zp_Data& ZpD,bool reduce=true);
 
 class modp 
 { 
@@ -65,7 +67,7 @@ class modp
     **********************************/
 
   // Convert representation to and from a modp number
-  friend void to_bigint(bigint& ans,const modp& x,const Zp_Data& ZpD,bool reduce=true);
+  friend void to_bigint(bigint& ans,const modp& x,const Zp_Data& ZpD,bool reduce);
 
   friend void to_modp(modp& ans,int x,const Zp_Data& ZpD);
   friend void to_modp(modp& ans,const bigint& x,const Zp_Data& ZpD);

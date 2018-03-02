@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * BitMatrix.h
@@ -108,7 +108,7 @@ class BitMatrixSlice
     friend class BitMatrix;
 
     BitMatrix& bm;
-    size_t start, size, end;
+    size_t start, end;
 
 public:
     BitMatrixSlice(BitMatrix& bm, size_t start, size_t size);

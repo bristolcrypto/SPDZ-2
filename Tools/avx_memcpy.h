@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * memcpy.h
@@ -44,7 +44,7 @@ inline void avx_memzero(void* dest, size_t length)
 	}
 #endif
 	if (length)
-		memset(d, 0, length);
+		memset((void*)d, 0, length);
 }
 
 #endif /* TOOLS_AVX_MEMCPY_H_ */

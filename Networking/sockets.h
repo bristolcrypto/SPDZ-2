@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _sockets
 #define _sockets
@@ -56,7 +56,7 @@ inline void send(int socket,octet *msg,size_t len)
     {
       int j = send(socket,msg+i,len-i,0);
       i += j;
-      if (j < 0)
+      if (j < 0 and errno != EINTR)
         { error("Send error - 1 ");  }
     }
 
@@ -72,7 +72,7 @@ inline void receive(int socket,octet *msg,size_t len)
     { int j=recv(socket,msg+i,len-i,0);
       if (j<0)
         {
-          if (errno == EAGAIN)
+          if (errno == EAGAIN or errno == EINTR)
             {
               if (++fail > 100)
                 error("Unavailable too many times");

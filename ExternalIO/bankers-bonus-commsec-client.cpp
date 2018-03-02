@@ -1,5 +1,5 @@
 /*
- * (C) 2017 University of Bristol. See License.txt
+ * (C) 2018 University of Bristol. See License.txt
  *
  * Demonstrate external client inputing and receiving outputs from a SPDZ process, 
  * following the protocol described in https://eprint.iacr.org/2015/1006.pdf. 
@@ -274,10 +274,10 @@ void generate_symmetric_keys(vector<octet*>& keys, vector<int>& client_public_ke
         keys[i] = new octet[crypto_generichash_BYTES];
         keyfile.read((char*)server_publickey, crypto_box_PUBLICKEYBYTES);
         if (keyfile.eof())
-            throw end_of_file(client_filename.str(), "server public key for party " + i);
+            throw end_of_file(client_filename.str(), "server public key for party " + to_string(i));
         keyfile.read((char*)(&sts_key->server_publickey[i][0]), crypto_sign_PUBLICKEYBYTES);
         if (keyfile.eof())
-            throw end_of_file(client_filename.str(), "server public signing key for party " + i);
+            throw end_of_file(client_filename.str(), "server public signing key for party " + to_string(i));
 
         // Derive a shared key from this server's secret key and the client's public key
         // shared key = h(q || client_secretkey || server_publickey)

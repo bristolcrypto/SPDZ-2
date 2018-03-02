@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * AddableVector.h
@@ -19,9 +19,15 @@ class AddableVector: public vector<T>
 public:
     AddableVector<T>() {}
     AddableVector<T>(size_t n, const T& x = T()) : vector<T>(n, x) {}
-    AddableVector<T>(const FFT_Data& FTD) { (void)FTD; }
     template <class U, class FD, class S>
-    AddableVector<T>(const Plaintext<U,FD,S>& other) : vector<T>(other.get_poly()) {}
+    AddableVector<T>(const Plaintext<U,FD,S>& other) :
+            AddableVector<T>(other.get_poly()) {}
+
+    template <class U>
+    AddableVector<T>(const vector<U>& other)
+    {
+        this->assign(other.begin(), other.end());
+    }
 
     template <class U>
     void allocate_slots(const U& init)
@@ -136,6 +142,11 @@ public:
         for (auto& x: *this)
             res = min(res, x);
         return res;
+    }
+
+    bool is_binary() const
+    {
+        throw not_implemented();
     }
 
     size_t report_size(ReportType type)

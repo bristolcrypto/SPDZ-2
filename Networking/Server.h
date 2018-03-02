@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * Server.h
@@ -17,6 +17,7 @@ class Server
 {
     vector<int> socket_num;
     vector<octet*> names;
+    vector<int> ports;
     int nmachines;
     int PortnumBase;
 

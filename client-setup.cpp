@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 // Preprocessing stage to:
 // Create the public/private key pairs for each client

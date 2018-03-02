@@ -1,4 +1,4 @@
-# (C) 2017 University of Bristol. See License.txt
+# (C) 2018 University of Bristol. See License.txt
 
 
 include CONFIG
@@ -24,17 +24,26 @@ OT_EXE = ot.x ot-offline.x
 endif
 
 COMMON = $(MATH) $(TOOLS) $(NETWORK) $(AUTH)
-COMPLETE = $(COMMON) $(PROCESSOR) $(FHEOFFLINE) $(TINYOTOFFLINE)
+COMPLETE = $(COMMON) $(PROCESSOR) $(FHEOFFLINE) $(TINYOTOFFLINE) $(OT)
 
 LIB = libSPDZ.a
 LIBSIMPLEOT = SimpleOT/libsimpleot.a
+
+# used for dependency generation
+OBJS = $(COMPLETE)
+DEPS := $(OBJS:.o=.d)
 
 
 all: gen_input online offline externalIO
 
 ifeq ($(USE_NTL),1)
-all: she-offline
+all: overdrive she-offline
 endif
+
+-include $(DEPS)
+
+%.o: %.cpp
+	$(CXX) $(CFLAGS) -MMD -c -o $@ $<
 
 online: Fake-Offline.x Server.x Player-Online.x Check-Offline.x
 
@@ -45,6 +54,8 @@ gen_input: gen_input_f2n.x gen_input_fp.x
 externalIO: client-setup.x bankers-bonus-client.x bankers-bonus-commsec-client.x
 
 she-offline: Check-Offline.x spdz2-offline.x
+
+overdrive: simple-offline.x pairwise-offline.x cnc-offline.x
 
 Fake-Offline.x: Fake-Offline.cpp $(COMMON) $(PROCESSOR)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -91,6 +102,15 @@ bankers-bonus-commsec-client.x: ExternalIO/bankers-bonus-commsec-client.cpp $(CO
 	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 ifeq ($(USE_NTL),1)
+simple-offline.x: $(COMMON) $(FHEOFFLINE) simple-offline.cpp
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+pairwise-offline.x: $(COMMON) $(FHEOFFLINE) pairwise-offline.cpp
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+cnc-offline.x: $(COMMON) $(FHEOFFLINE) cnc-offline.cpp
+	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 spdz2-offline.x: $(COMMON) $(FHEOFFLINE) spdz2-offline.cpp
 	$(CXX) $(CFLAGS) -o $@ $^ $(LDLIBS)
 endif

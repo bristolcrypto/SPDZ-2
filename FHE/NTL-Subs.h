@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _NTL_Subs
 #define _NTL_Subs
@@ -25,8 +25,13 @@ void generate_setup(int n_parties, int plaintext_length, int sec,
     FHE_Params& params, FD& FTD, int slack, bool round_up);
 
 // semi-homomorphic, includes slack
+template <class FD>
 int generate_semi_setup(int plaintext_length, int sec,
-    bigint& p, FHE_Params& params, FFT_Data& FTD, bool round_up);
+    FHE_Params& params, FD& FieldD, bool round_up);
+
+// field-independent semi-homomorphic setup
+int common_semi_setup(FHE_Params& params, int m, bigint p, int lgp0, int lgp1,
+    bool round_up);
 
 // Everything else needs NTL
 void init(Ring& Rg,int m);
@@ -47,7 +52,14 @@ void generate_moduli(bigint& pr0, bigint& pr1, const int m,
 void generate_modulus(bigint& pr, const int m, const bigint p, const int lg2pr,
     const string& i = "0", const bigint& pr0 = 0);
 
-void SPDZ_Data_Setup_Char_2(Ring& R,P2Data& P2D,bigint& pr0,bigint& pr1,int n,int lg2);
+// pre-generated dimensions for characteristic 2
+void char_2_dimension(int& m, int& lg2);
+
+void SPDZ_Data_Setup_Char_2(Ring& R, P2Data& P2D, bigint& pr0, bigint& pr1,
+    int n, int lg2, int sec = -1, int slacke = 0, bool round_up = false);
+
+// try to avoid expensive generation by loading from disk if possible
+void load_or_generate(P2Data& P2D, const Ring& Rg);
 
 int phi_N(int N);
 

@@ -1,5 +1,5 @@
 /*
- * (C) 2017 University of Bristol. See License.txt
+ * (C) 2018 University of Bristol. See License.txt
  *
  * Demonstrate external client inputing and receiving outputs from a SPDZ process, 
  * following the protocol described in https://eprint.iacr.org/2015/1006.pdf.

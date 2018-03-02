@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _Zp_Data
 #define _Zp_Data
@@ -102,8 +102,19 @@ class Zp_Data
 };
 
 template<>
+inline void Zp_Data::Add<0>(mp_limb_t* ans,const mp_limb_t* x,const mp_limb_t* y) const
+{
+  mp_limb_t carry = mpn_add_n(ans,x,y,t);
+  if (carry!=0 || mpn_cmp(ans,prA,t)>=0)
+    { mpn_sub_n(ans,ans,prA,t); }
+}
+
+template<>
 inline void Zp_Data::Add<2>(mp_limb_t* ans,const mp_limb_t* x,const mp_limb_t* y) const
 {
+#ifdef __clang__
+  Add<0>(ans, x, y);
+#else
   __uint128_t a, b, p;
   memcpy(&a, x, sizeof(__uint128_t));
   memcpy(&b, y, sizeof(__uint128_t));
@@ -114,14 +125,7 @@ inline void Zp_Data::Add<2>(mp_limb_t* ans,const mp_limb_t* x,const mp_limb_t* y
  sub:
       c -= p;
   memcpy(ans, &c, sizeof(__uint128_t));
-}
-
-template<>
-inline void Zp_Data::Add<0>(mp_limb_t* ans,const mp_limb_t* x,const mp_limb_t* y) const
-{
-  mp_limb_t carry = mpn_add_n(ans,x,y,t);
-  if (carry!=0 || mpn_cmp(ans,prA,t)>=0)
-    { mpn_sub_n(ans,ans,prA,t); }
+#endif
 }
 
 inline void Zp_Data::Add(mp_limb_t* ans,const mp_limb_t* x,const mp_limb_t* y) const

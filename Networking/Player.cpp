@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 
 #include "Player.h"
@@ -19,11 +19,11 @@ CommsecKeysPackage::CommsecKeysPackage(vector<public_signing_key> playerpubs,
     my_public_key = mypub;
 }
 
-void Names::init(int player,int pnb,const char* servername)
+void Names::init(int player,int pnb,int my_port,const char* servername)
 {
   player_no=player;
   portnum_base=pnb;
-  setup_names(servername);
+  setup_names(servername, my_port);
   keys = NULL;
   setup_server();
 }
@@ -42,6 +42,7 @@ void Names::init(int player,int pnb,vector<octet*> Nms)
   portnum_base=pnb;
   nplayers=Nms.size();
   names.resize(nplayers);
+  setup_ports();
   for (int i=0; i<nplayers; i++) {
       names[i]=(char*)Nms[i];
   }
@@ -73,10 +74,18 @@ void Names::init(int player, int pnb, const string& filename, int nplayers_wante
         break;
     }
   }
+  setup_ports();
   cerr << "Got list of " << nplayers << " players from file: " << endl;
   for (unsigned int i = 0; i < names.size(); i++)
     cerr << "    " << names[i] << endl;
   setup_server();
+}
+
+void Names::setup_ports()
+{
+  ports.resize(nplayers);
+  for (int i = 0; i < nplayers; i++)
+    ports[i] = default_port(i);
 }
 
 void Names::set_keys( CommsecKeysPackage *keys )
@@ -84,8 +93,11 @@ void Names::set_keys( CommsecKeysPackage *keys )
     this->keys = keys;
 }
 
-void Names::setup_names(const char *servername)
+void Names::setup_names(const char *servername, int my_port)
 {
+  if (my_port == DEFAULT_PORT)
+    my_port = default_port(player_no);
+
   int socket_num;
   int pn = portnum_base - 1;
   set_up_client_socket(socket_num, servername, pn);
@@ -106,6 +118,7 @@ void Names::setup_names(const char *servername)
   strncpy((char*)my_name, name, 16);
   fprintf(stderr, "My Name = %s\n",my_name);
   send(socket_num,my_name,512);
+  send(socket_num,(octet*)&my_port,4);
   cerr << "My number = " << player_no << endl;
 
   // Now get the set of names
@@ -113,10 +126,12 @@ void Names::setup_names(const char *servername)
   receive(socket_num,nplayers);
   cerr << nplayers << " players\n";
   names.resize(nplayers);
+  ports.resize(nplayers);
   for (i=0; i<nplayers; i++)
     { octet tmp[512];
       receive(socket_num,tmp,512);
       names[i]=(char*)tmp;
+      receive(socket_num, (octet*)&ports[i], 4);
       cerr << "Player " << i << " is running on machine " << names[i] << endl;
     }
   close_client_socket(socket_num);
@@ -125,7 +140,7 @@ void Names::setup_names(const char *servername)
 
 void Names::setup_server()
 {
-  server = new ServerSocket(portnum_base + player_no);
+  server = new ServerSocket(ports[player_no]);
   server->init();
 }
 
@@ -138,6 +153,7 @@ Names::Names(const Names& other)
   nplayers = other.nplayers;
   portnum_base = other.portnum_base;
   names = other.names;
+  ports = other.ports;
   keys = NULL;
   server = 0;
 }
@@ -156,7 +172,7 @@ Player::Player(const Names& Nms, int id) :
 {
   nplayers=Nms.nplayers;
   player_no=Nms.player_no;
-  setup_sockets(Nms.names, Nms.portnum_base, id, *Nms.server);
+  setup_sockets(Nms.names, Nms.ports, id, *Nms.server);
   blk_SHA1_Init(&ctx);
 }
 
@@ -173,7 +189,7 @@ Player::~Player()
 // Set up nmachines client and server sockets to send data back and fro
 //   A machine is a server between it and player i if i<=my_number
 //   Can also communicate with myself, but only with send_to and receive_from
-void Player::setup_sockets(const vector<string>& names,int portnum_base,int id_base,ServerSocket& server)
+void Player::setup_sockets(const vector<string>& names,const vector<int>& ports,int id_base,ServerSocket& server)
 {
     sockets.resize(nplayers);
     // Set up the client side
@@ -181,11 +197,11 @@ void Player::setup_sockets(const vector<string>& names,int portnum_base,int id_b
         int pn=id_base+i*nplayers+player_no;
         if (i==player_no) {
           const char* localhost = "127.0.0.1";
-          fprintf(stderr, "Setting up send to self socket to %s:%d with id 0x%x\n",localhost,portnum_base+i,pn);
-          set_up_client_socket(sockets[i],localhost,portnum_base+i);
+          fprintf(stderr, "Setting up send to self socket to %s:%d with id 0x%x\n",localhost,ports[i],pn);
+          set_up_client_socket(sockets[i],localhost,ports[i]);
         } else {
-          fprintf(stderr, "Setting up client to %s:%d with id 0x%x\n",names[i].c_str(),portnum_base+i,pn);
-          set_up_client_socket(sockets[i],names[i].c_str(),portnum_base+i);
+          fprintf(stderr, "Setting up client to %s:%d with id 0x%x\n",names[i].c_str(),ports[i],pn);
+          set_up_client_socket(sockets[i],names[i].c_str(),ports[i]);
         }
         send(sockets[i], (unsigned char*)&pn, sizeof(pn));
     }
@@ -413,7 +429,7 @@ TwoPartyPlayer::TwoPartyPlayer(const Names& Nms, int other_player, int id) :
         PlayerBase(Nms.my_num()), other_player(other_player)
 {
   is_server = Nms.my_num() > other_player;
-  setup_sockets(other_player, Nms, Nms.portnum_base + other_player, id);
+  setup_sockets(other_player, Nms, Nms.ports[other_player], id);
 }
 
 TwoPartyPlayer::~TwoPartyPlayer()

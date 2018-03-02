@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 #ifndef _random
 #define _random
@@ -69,6 +69,8 @@ class PRNG
    unsigned char get_uchar();
    unsigned int get_uint();
    void get_bigint(bigint& res, int n_bits, bool positive = true);
+   void get(bigint& res, int n_bits, bool positive = true);
+   void get(int& res, int n_bits, bool positive = true);
    void randomBnd(bigint& res, const bigint& B, bool positive=true);
    bigint randomBnd(const bigint& B, bool positive=true);
    word get_word()

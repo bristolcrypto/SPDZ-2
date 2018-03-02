@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * DataSetup.h
@@ -13,10 +13,14 @@
 #include "FHEOffline/FullSetup.h"
 #include "Math/Setup.h"
 
+class DataSetup;
+
 template <class FD>
 class PartSetup
 {
 public:
+  typedef typename FD::T T;
+
   FHE_Params params;
   FD FieldD;
   FHE_PK pk;
@@ -28,6 +32,18 @@ public:
   void generate_setup(int n_parties, int plaintext_length, int sec, int slack,
       bool round_up);
   void output_setup(ostream& s) const;
+
+  void fake(vector<FHE_SK>& sks, vector<T>& alphais, int nplayers, bool distributed = true);
+  void fake(vector<PartSetup<FD> >& setups, int nplayers, bool distributed = true);
+  void insecure_debug_keys(vector<PartSetup<FD> >& setups, int nplayers, bool simple_pk);
+
+  void pack(octetStream& os);
+  void unpack(octetStream& os);
+
+  void init_field();
+
+  void check(int sec) const;
+  bool operator!=(const PartSetup<FD>& other);
 };
 
 class DataSetup
@@ -57,26 +73,18 @@ public:
   DataSetup(const DataSetup& other) : DataSetup() { *this = other; }
   DataSetup& operator=(const DataSetup& other);
 
-  template <class T>
-  void generate_setup(int n_parties, int plaintext_length, int sec, int slack, bool write_output);
   void write_setup(string dir, bool skip_2);
   void write_setup(bool skip_2);
   void write_setup(const Names& N, bool skip_2);
   string get_prep_dir(int n_parties) const;
   void read_setup(bool skip_2, string dir = PREP_DIR);
   void read(Names& N, bool skip_2 = false, string dir = PREP_DIR);
-  template <class T>
-  void fake(vector<FHE_SK>& sks, vector<gfp>& alphais, int nplayers, bool distributed = true);
-  template <class T>
-  void fake(vector<DataSetup>& setups, int nplayers, bool distributed = true);
-  void insecure_debug_keys(vector<DataSetup>& setups, int nplayers, bool simple_pk);
   void output(int my_number, int nn, bool specific_dir = false);
-  template <class T>
-  void pack(octetStream& os);
-  template <class T>
-  void unpack(octetStream& os);
-  void check(int sec) const;
-  bool operator!=(const DataSetup& other);
+  template <class FD>
+  PartSetup<FD>& part();
 };
+
+template<> inline PartSetup<FFT_Data>& DataSetup::part<FFT_Data>() { return setup_p; }
+template<> inline PartSetup<P2Data>& DataSetup::part<P2Data>() { return setup_2; }
 
 #endif /* FHEOFFLINE_DATASETUP_H_ */

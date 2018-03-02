@@ -1,4 +1,4 @@
-// (C) 2017 University of Bristol. See License.txt
+// (C) 2018 University of Bristol. See License.txt
 
 /*
  * gf2nlong.h
@@ -115,7 +115,7 @@ class gf2n_long
 
   int128 get() const { return a; }
   __m128i to_m128i() const { return a.a; }
-  word get_word() const { return _mm_cvtsi128_si64x(a.a); }
+  word get_word() const { return _mm_cvtsi128_si64(a.a); }
 
   void assign(const gf2n_long& g)     { a=g.a; }
 
