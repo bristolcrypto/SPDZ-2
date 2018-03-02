@@ -116,7 +116,7 @@ More generally, run the following on every machine:
 
 The number of parties are counted from 0. As seen in the quick example, you can omit the total number of parties if it is 2 and the hostname if all parties run on the same machine. Invoke `./spdz2-offline.x` for more explanation on the options.
 
-SPDZ-2 provides covert security according to some parameter c (at least 2). A malicious adversary will get caught with probability 1-1/c. There is a linear correlation between c and the running time, that is, running with 2c takes twice as long as running with c. The default for c is 10.
+`./spdz2-offline.x` provides covert security according to some parameter c (at least 2). A malicious adversary will get caught with probability 1-1/c. There is a linear correlation between c and the running time, that is, running with 2c takes twice as long as running with c. The default for c is 10.
 
 The program will generate every kind of randomness required by the online phase until you stop it. You can shut it down gracefully pressing Ctrl-c (or sending the interrupt signal `SIGINT`), but only after an initial phase, the end of which is marked by the output `Starting to produce gf2n`. Note that the initial phase has been reported to take up to an hour. Furthermore, 3 GB of RAM are required per party.
 
@@ -155,7 +155,7 @@ Binary | Protocol
 ------ | --------
 `simple-offline.x` | SPDZ-1 and High Gear (with command-line argument `-g`)
 `pairwise-offline.x` | Low Gear
-`cnc-offline.x` | SPDZ-2
+`cnc-offline.x` | SPDZ-2 with malicious security (covert security with command-line argument `-c`)
 
 These programs can be run similarly to `spdz2-offline.x`, for example:
 
