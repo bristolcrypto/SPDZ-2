@@ -45,7 +45,7 @@ class Program(object):
         self.param = param
         self.bit_length = BIT_LENGTHS[param]
         print 'Default bit length:', self.bit_length
-        self.security = STAT_SEC[param]
+        self.security = 40
         print 'Default security parameter:', self.security
         self.galois_length = int(options.galois)
         print 'Galois length:', self.galois_length
