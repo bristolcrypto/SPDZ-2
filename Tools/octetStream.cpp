@@ -36,16 +36,6 @@ void octetStream::assign(const octetStream& os)
 }
 
 
-void octetStream::swap(octetStream& os)
-{
-  const size_t size = sizeof(octetStream);
-  char tmp[size];
-  memcpy(tmp, this, size);
-  memcpy(this, &os, size);
-  memcpy(&os, tmp, size);
-}
-
-
 octetStream::octetStream(size_t maxlen)
 {
   mxlen=maxlen; len=0; ptr=0;

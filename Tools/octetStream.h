@@ -45,7 +45,6 @@ class octetStream
   void clear();
 
   void assign(const octetStream& os);
-  void swap(octetStream& os);
 
   octetStream() : len(0), mxlen(0), ptr(0), data(0) {}
   octetStream(size_t maxlen);
