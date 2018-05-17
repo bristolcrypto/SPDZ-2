@@ -122,7 +122,7 @@ namespace Config {
                 pubkeys[i].resize(crypto_sign_PUBLICKEYBYTES);
                 infile.read((char*)&pubkeys[i][0],pubkeys[i].size());
             }
-        } catch (ConfigError e) {
+        } catch (ConfigError& e) {
             pubkeys.resize(0);
         }
 
