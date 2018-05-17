@@ -78,10 +78,10 @@ Machine::Machine(int my_number, Names& playerNames,
        exit(1);
      }
 
-  sprintf(filename, "Programs/Schedules/%s.sch",progname.c_str());
-  cerr << "Opening file " << filename << endl;
-  inpf.open(filename);
-  if (inpf.fail()) { throw file_error("Missing '" + string(filename) + "'. Did you compile '" + progname + "'?"); }
+  string fname = "Programs/Schedules/" + progname + ".sch";
+  cerr << "Opening file " << fname << endl;
+  inpf.open(fname);
+  if (inpf.fail()) { throw file_error("Missing '" + fname + "'. Did you compile '" + progname + "'?"); }
 
   int nprogs;
   inpf >> nthreads;
@@ -95,10 +95,10 @@ Machine::Machine(int my_number, Names& playerNames,
 
   // Load in the programs 
   progs.resize(nprogs,N.num_players());
-  char threadname[1024];
+  string threadname;
   for (int i=0; i<nprogs; i++)
     { inpf >> threadname;
-      sprintf(filename,"Programs/Bytecode/%s.bc",threadname);
+      string filename = "Programs/Bytecode/" + threadname + ".bc";
       cerr << "Loading program " << i << " from " << filename << endl;
       ifstream pinp(filename);
       if (pinp.fail()) { throw file_error(filename); }
