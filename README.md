@@ -8,6 +8,8 @@ See also https://www.cs.bris.ac.uk/Research/CryptographySecurity/SPDZ
 
 #### Preface:
 
+If you are mainly looking to run complete secure computation modulo a prime, [SCALE-MAMBA](https://github.com/KULeuven-COSIC/SCALE-MAMBA), which is a fork of this software. The software in this repository is better suited to run the online phase (including for $GF(2^n)$) and various offline phases individually.
+
 The software contains some functionality for benchmarking that breaks security. This is deactivated by default. See the compilation section on how to activate it if needed.
 
 In particular, the online phase will discard preprocessed data and crash when it runs out if not in benchmarking mode. In benchmarking mode, it will reuse preprocessed data.
