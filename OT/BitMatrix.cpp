@@ -241,7 +241,10 @@ void square128::to(gfp& result)
     for (int i = 0; i < 128; i++)
     {
         memcpy(&(tmp[i/64][i/64]), &(rows[i]), sizeof(rows[i]));
-        mpn_lshift(product, tmp[i/64], 4, i % 64);
+        if (i % 64 == 0)
+            memcpy(product, tmp[i/64], sizeof(product));
+        else
+            mpn_lshift(product, tmp[i/64], 4, i % 64);
         mpn_add_n(sum, product, sum, 4);
     }
     mp_limb_t q[4], ans[4];
