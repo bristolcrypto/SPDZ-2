@@ -11,6 +11,7 @@
 #include "Exceptions/Exceptions.h"
 #include "Networking/data.h"
 #include "Math/bigint.h"
+#include "Math/gfp.h"
 
 
 void octetStream::clear()
@@ -244,14 +245,16 @@ void octetStream::encrypt_sequence(const octet* key, uint64_t counter)
   for(i=0; i<8; i++) {
       nonce[i] = uint8_t ((counter >> (8*i)) & 0xFF);
   }
+  int ciphertext_len = message_len_bytes + crypto_secretbox_MACBYTES;
+  octet ciphertext[ciphertext_len];
 
-  resize(len + crypto_secretbox_MACBYTES + crypto_secretbox_NONCEBYTES);
-
-  // Encrypt data in-place
-  crypto_secretbox_easy(data, data, message_len_bytes, nonce, key);
-  // Adjust length to account for MAC, then append nonce
-  len += crypto_secretbox_MACBYTES;
-  append(nonce, sizeof nonce);
+  crypto_secretbox_easy(ciphertext, data, message_len_bytes, nonce, key);
+  // append the ciphertext to an empty octet stream
+  reset_read_head();
+  reset_write_head();
+  append(ciphertext, ciphertext_len*sizeof(octet));
+  // append the nonce
+  append(nonce, crypto_secretbox_NONCEBYTES * sizeof(octet));
 }
 
 void octetStream::decrypt_sequence(const octet* key, uint64_t counter)
@@ -276,6 +279,8 @@ void octetStream::decrypt_sequence(const octet* key, uint64_t counter)
     throw Processor_Error("octetStream decryption failed!");
   }
   rewind_write_head(crypto_box_NONCEBYTES + crypto_secretbox_MACBYTES);
+  //prepare for unpack after decryption by resetting the read head
+  reset_read_head();
 }
 
 void octetStream::encrypt(const octet* key)

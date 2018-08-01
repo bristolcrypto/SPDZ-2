@@ -182,11 +182,13 @@ void send_private_inputs(vector<gfp>& values, vector<int>& sockets, int nparties
         gfp y = values[i] + triples[i][0];
         y.pack(os);
     }
-    for (int j = 0; j < nparties; j++) {
-        os.encrypt_sequence(&commsec[j].first[0],0);
-        os.Send(sockets[j]);
+    for (int j = 0; j < nparties; j++)
+    {
+        octetStream temp = os;
+        temp.encrypt_sequence(&commsec[j].first[0], 0);
+        temp.Send(sockets[j]);
     }
-}
+  }
 
 // Send public key in clear to each SPDZ engine.
 void send_public_key(vector<int>& pubkey, int socket)
