@@ -4,6 +4,8 @@ Software for the SPDZ, MASCOT, and Overdrive secure multi-party computation prot
 See `Programs/Source/` for some example MPC programs, and `tutorial.md` for
 a basic tutorial.
 
+The background information on the following page about a fork largely applies to this software as well: https://homes.esat.kuleuven.be/~nsmart/SCALE
+
 #### Preface:
 
 If you are mainly looking to run complete secure computation modulo a prime, [SCALE-MAMBA](https://github.com/KULeuven-COSIC/SCALE-MAMBA), which is a fork of this software, might be a better fit for you. The software in this repository is better suited to run the online phase (including for $GF(2^n)$) and various offline phases individually.
