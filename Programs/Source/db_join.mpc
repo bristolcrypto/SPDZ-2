@@ -1,0 +1,154 @@
+# (C) 2018 Databeyond.io
+# coding: latin-1
+"""
+  Solve Bankers bonus, aka Millionaires problem.
+  to deduce the maximum value from a range of integer input.
+
+  Demonstrate clients external to computing parties supplying input and receiving an authenticated result. See bankers-bonus-client.cpp for client (and setup instructions).
+
+  For an implementation with communications security see bankers_bonus_commsec.mpc.
+  
+  Wait for MAX_NUM_CLIENTS to join the game or client finish flag to be sent
+  before calculating the maximum.
+
+  Note each client connects in a single thread and so is potentially blocked.
+  
+  Each round / game will reset and so this runs indefinitiely.
+"""
+
+from Compiler.types import sint, regint, Array, MemValue
+from Compiler.instructions import listen, acceptclientconnection
+from Compiler.library import print_ln, do_while, for_range
+from Compiler.util import if_else
+
+PORTNUM = 14000
+MAX_NUM_CLIENTS = 8
+
+def accept_client_input():
+    """
+    Wait for socket connection, send share of random value, receive input and deduce share.
+    Expect 3 inputs: unique id, bonus value and flag to indicate end of this round.
+    """
+    client_socket_id = regint()
+    acceptclientconnection(client_socket_id, PORTNUM)
+    table_values = Array(2, sint)
+    input0 = Array(1, sint)
+    input2 = Array(1, sint)
+    @for_range(2)
+    def loop_body(i):
+        client_inputs = sint.receive_from_client(3, client_socket_id)
+        table_values[i] = client_inputs[1]
+        input0[0] = client_inputs[0]
+        input2[0] = client_inputs[2]
+    return client_socket_id, input0[0], table_values, input2[0]
+
+
+def determine_winner(number_clients, client_values, client_ids):
+    """Work out and return client_id which corresponds to max client_value"""
+    max_value = Array(1, sint)
+    max_value[0] = client_values[0]
+    win_client_id = Array(1, sint)
+    win_client_id[0] = client_ids[0]
+
+    @for_range(number_clients-1)
+    def loop_body(i):
+        # Is this client input a new maximum, will be sint(1) if true, else sint(0)
+        is_new_max = max_value[0] < client_values[i+1]
+        # Keep latest max_value
+        max_value[0] = if_else(is_new_max, client_values[i+1], max_value[0])
+        # Keep current winning client id
+        win_client_id[0] = if_else(is_new_max, client_ids[i+1], win_client_id[0])
+
+    return win_client_id[0]
+
+def joint_stats(number_clients, client_values0, client_values1, client_ids):
+    """Work out and return client_id which corresponds to max client_value"""
+    max_value = Array(1, sint)
+    max_value[0] = client_values0[0]
+    @for_range(2-1)
+    def loop_body(i):
+        # Is this client input a new maximum, will be sint(1) if true, else sint(0)
+        is_new_max = max_value[0] < client_values0[i+1]
+        # Keep latest max_value
+        max_value[0] = if_else(is_new_max, client_values0[i+1], max_value[0])
+    @for_range(2)
+    def loop_body(i):
+        # Is this client input a new maximum, will be sint(1) if true, else sint(0)
+        is_new_max = max_value[0] < client_values1[i]
+        # Keep latest max_value
+        max_value[0] = if_else(is_new_max, client_values1[i], max_value[0])
+    return max_value[0]
+
+def avg_stats(number_clients, client_values0, client_values1, client_ids):
+    """Work out and return client_id which corresponds to max client_value"""
+    sum_value = Array(1, sint)
+    sum_value[0] = client_values0[0]
+    @for_range(2-1)
+    def loop_body(i):
+        sum_value[0] += client_values0[i+1]
+    @for_range(2)
+    def loop_body(i):
+        sum_value[0] += client_values1[i]
+    return sum_value[0]/sint(4)
+
+def write_winner_to_clients(sockets, number_clients, result):
+    """Send share of winning client id to all clients who joined game."""
+
+    # Setup authenticate result using share of random.
+    # client can validate ∑ result * ∑ rnd_from_triple = ∑ auth_result
+    rnd_from_triple = sint.get_random_triple()[0]
+    auth_result = result * rnd_from_triple
+
+    @for_range(number_clients)
+    def loop_body(i):
+        sint.write_shares_to_socket(sockets[i], [result, rnd_from_triple, auth_result])
+
+
+def main():
+    """Listen in while loop for players to join a game.
+    Once maxiumum reached or have notified that round finished, run comparison and return result."""
+    # Start listening for client socket connections
+    listen(PORTNUM)
+    print_ln('Listening for client connections on base port %s', PORTNUM)
+
+    @do_while
+    def game_loop():
+        print_ln('Starting a new round of the game.')
+
+        # Clients socket id (integer).
+        client_sockets = Array(MAX_NUM_CLIENTS, regint)
+        # Number of clients
+        number_clients = MemValue(regint(0))
+        # Clients secret input.
+        client_values0 = Array(2, sint)
+        client_values1 = Array(2, sint)
+        # Client ids to identity client
+        client_ids = Array(MAX_NUM_CLIENTS, sint)
+        
+        # Loop round waiting for each client to connect
+        @do_while
+        def client_connections():
+            
+            client_sockets[number_clients], client_ids[number_clients], cv, finish = accept_client_input()
+            a = finish.reveal()
+            @for_range(2)
+            def loop_body(i):
+                if_then(a)
+                client_values1[i] = cv[i]
+                else_then()
+                client_values0[i] = cv[i]
+                end_if()
+            number_clients.write(number_clients+1)
+            # continue while both expressions are false
+            return (number_clients >= MAX_NUM_CLIENTS) + a == 0 
+        # winning_client_id = determine_winner(number_clients, client_values, client_ids)
+        print_ln('Start join')
+        stats_max = avg_stats(number_clients, client_values0, client_values1, client_ids)
+        print_ln('Found max: %s.', stats_max.reveal())
+
+        write_winner_to_clients(client_sockets, number_clients, stats_max)
+
+        return True
+
+main()
+
