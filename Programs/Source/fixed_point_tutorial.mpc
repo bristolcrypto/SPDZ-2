@@ -13,7 +13,7 @@ A = sfixArray(n)
 for i in range(n):
 	A[i] = sfix(i)
 
-print_ln('mrray of fixed points')
+print_ln('array of fixed points')
 for i in range(n):
 	print_ln('%s', A[i].reveal())
 
