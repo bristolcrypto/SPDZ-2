@@ -19,6 +19,8 @@ class CutAndChooseMachine : public MultiplicativeMachine
 
 public:
     CutAndChooseMachine(int argc, const char** argv);
+
+    int get_covert() const { return sec; }
 };
 
 #endif /* FHEOFFLINE_CUTANDCHOOSEMACHINE_H_ */

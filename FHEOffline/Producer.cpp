@@ -514,6 +514,8 @@ gf2nBitProducer::gf2nBitProducer(const Player& P, const FHE_PK& pk, int covert,
         Producer<P2Data>(thread_num, write_output),
         write_output(write_output), ECB(P, pk, covert, Bits)
 {
+    if (covert == 0)
+        throw not_implemented();
     this->dir = dir;
     if (write_output)
         open_prep_file<gf2n_short>(outf, data_type(), P.my_num(), thread_num,

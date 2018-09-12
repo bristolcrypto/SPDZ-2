@@ -59,6 +59,11 @@ protected:
     void generate_setup(int slack);
     template <class FD>
     void fake_keys(int slack);
+
+public:
+    virtual ~MultiplicativeMachine() {}
+
+    virtual int get_covert() const { return 0; }
 };
 
 class SimpleMachine : public MultiplicativeMachine
