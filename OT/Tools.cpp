@@ -12,7 +12,7 @@ void random_seed_commit(octet* seed, TwoPartyPlayer& player, int len)
   	vector<octetStream> Open_seed(2);
 	G.get_octetStream(seed_strm[0], len);
 
-	Commit(Comm_seed[0], Open_seed[0], seed_strm[0], player.my_num());
+	Commit(Comm_seed[0], Open_seed[0], seed_strm[0], player.my_real_num());
 	player.send_receive_player(Comm_seed);
 	player.send_receive_player(Open_seed);
 

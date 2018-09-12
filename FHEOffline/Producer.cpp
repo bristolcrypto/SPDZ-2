@@ -386,7 +386,7 @@ void InverseProducer<FD>::run(const Player& P, const FHE_PK& pk, const Ciphertex
     // Steps e and f
     Ciphertext cab(params),cc(params);
     mul(cab,ca,cb,pk);
-    dd.run(cab);
+    dd.run(cab, true);
     ab = dd.mf;
 
     if (produce_triples)
@@ -451,7 +451,7 @@ void gfpBitProducer::run(const Player& P, const FHE_PK& pk,
     // Steps c and d
     Ciphertext caa(params);
     mul(caa, ca, ca, pk);
-    Plaintext_<FFT_Data>& s = dd.run(caa);
+    Plaintext_<FFT_Data>& s = dd.run(caa, true);
 
     // Step e, f and g
     vector<int> marks(s.num_slots());

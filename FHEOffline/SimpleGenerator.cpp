@@ -32,7 +32,7 @@ SimpleGenerator<T,FD>::SimpleGenerator(const Names& N, const PartSetup<FD>& setu
                     thread_num, machine.output);
             break;
         case DATA_BIT:
-            producer = new_bit_producer(setup.FieldD, P, setup.pk, true,
+            producer = new_bit_producer(setup.FieldD, P, setup.pk, 0, true,
                     thread_num, machine.output);
             break;
         case DATA_INVERSE:

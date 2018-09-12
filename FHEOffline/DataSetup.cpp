@@ -272,8 +272,8 @@ void PartSetup<FD>::unpack(octetStream& os)
     pk.unpack(os);
     sk.unpack(os);
     calpha.unpack(os);
-    alphai.unpack(os);
     init_field();
+    alphai.unpack(os);
 }
 
 template <>

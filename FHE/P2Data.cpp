@@ -39,7 +39,7 @@ void P2Data::backward(vector<gf2n_short>& ans,const vector<int>& a) const
         { y<<=1;
           int ii=i*n+n-1-j,xx=0;
           for (unsigned int k=0; k<a.size(); k++)
-            { if (a[k]==1 && Ai[ii][k]==1) { xx^=1; } }
+            { if ((a[k] & 1) && Ai[ii][k]==1) { xx^=1; } }
           y^=xx;
         }
       ans[i].assign(y);
