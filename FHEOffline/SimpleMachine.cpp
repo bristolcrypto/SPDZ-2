@@ -328,7 +328,7 @@ void MachineBase::throughput_loop()
 void* MachineBase::run_throughput_loop(void* machine)
 {
     pthread_detach(pthread_self());
-    ((SimpleMachine*)machine)->throughput_loop();
+    ((MachineBase*)machine)->throughput_loop();
     return 0;
 }
 
