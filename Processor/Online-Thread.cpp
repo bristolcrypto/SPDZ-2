@@ -54,14 +54,14 @@ void* Sub_Main_Func(void* ptr)
   else if (machine.parallel)
     {
       cerr << "Using indirect communication with background threads." << endl;
-      MC2 = new Parallel_MAC_Check<gf2n>(*(tinfo->alpha2i),*(tinfo->Nms), num, machine.opening_sum);
-      MCp = new Parallel_MAC_Check<gfp>(*(tinfo->alphapi),*(tinfo->Nms), num, machine.opening_sum);
+      MC2 = new Parallel_MAC_Check<gf2n>(*(tinfo->alpha2i),*(tinfo->Nms), num, machine.opening_sum, machine.max_broadcast);
+      MCp = new Parallel_MAC_Check<gfp>(*(tinfo->alphapi),*(tinfo->Nms), num, machine.opening_sum, machine.max_broadcast);
     }
   else
     {
       cerr << "Using indirect communication." << endl;
-      MC2 = new MAC_Check<gf2n>(*(tinfo->alpha2i), machine.opening_sum);
-      MCp = new MAC_Check<gfp>(*(tinfo->alphapi), machine.opening_sum);
+      MC2 = new MAC_Check<gf2n>(*(tinfo->alpha2i), machine.opening_sum, machine.max_broadcast);
+      MCp = new MAC_Check<gfp>(*(tinfo->alphapi), machine.opening_sum, machine.max_broadcast);
     }
 
   // Allocate memory for first program before starting the clock
