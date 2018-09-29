@@ -27,7 +27,7 @@ In particular, the online phase will discard preprocessed data and crash when it
 
 1) Edit `CONFIG` or `CONFIG.mine` to your needs:
 
- - To benchmark only the online phase (skipping the secure offline phase), add the following line at the top: `MY_CFLAGS = -DINSECURE`
+ - To benchmark the online phase while skipping the secure offline phase, or to benchmark any of the Overdrive offline phases, add the following line at the top: `MY_CFLAGS = -DINSECURE`
  - `PREP_DIR` should point to should be a local, unversioned directory to store preprocessing data (default is `Player-Data` in the current directory).
  - For the SPDZ-2 and Overdrive offline phases, set `USE_NTL = 1` and `MOD = -DMAX_MOD_SZ=6`.
  - For the MASCOT offline phase or to use GF(2^128) in the online phase, set `USE_GF2N_LONG = 1`.
