@@ -84,7 +84,7 @@ class EncCommit : public EncCommitBase<T,FD,S>
   { return 4 * delta * TT * phim; }
   static bigint active_slack(int phim) { return 2 * active_mask(phim); }
 
-  EncCommit() { ; }
+  EncCommit() : cnt(-1) { ; }
   ~EncCommit();
 
   // for compatibility
@@ -105,6 +105,8 @@ class EncCommit : public EncCommitBase<T,FD,S>
       { init(PP,fhepk,cc,PFieldD,thr); }
 
   condition get_condition() { return cond; }
+
+  bool has_left() const { return cnt >= 0; }
 
   void next(Plaintext<T,FD,S>& mess, vector<Ciphertext>& C)
     {

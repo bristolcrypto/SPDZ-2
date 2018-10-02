@@ -166,7 +166,7 @@ void EncCommit<T,FD,S>::next_active(Plaintext<T,FD,S>& mess, vector<Ciphertext>&
 {
   const FHE_Params& params=(*pk).get_params();
 
-  if (cnt<0) { Create_More(); }
+  if (not has_left()) { Create_More(); }
   mess=m[cnt];
   C.resize((*P).num_players(),Ciphertext(params));
   for (int i=0; i<(*P).num_players(); i++)

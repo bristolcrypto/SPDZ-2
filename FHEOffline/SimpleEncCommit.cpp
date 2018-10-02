@@ -66,7 +66,7 @@ SimpleEncCommitFactory<FD>::~SimpleEncCommitFactory()
 template<class FD>
 void SimpleEncCommitFactory<FD>::next(Plaintext_<FD>& mess, Ciphertext& C)
 {
-    if (cnt < 0)
+    if (not has_left())
         create_more();
     mess = m[cnt];
     C = c[cnt];

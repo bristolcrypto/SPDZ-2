@@ -11,6 +11,8 @@ using namespace std;
 #include "FHE/Ciphertext.h"
 #include "FHE/AddableVector.h"
 
+#include "config.h"
+
 enum SlackType
 {
   NONINTERACTIVE_SPDZ1_SLACK = -1,

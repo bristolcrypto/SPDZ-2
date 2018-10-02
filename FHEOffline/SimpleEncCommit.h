@@ -95,6 +95,7 @@ protected:
 public:
     SimpleEncCommitFactory(const FHE_PK& pk, const FD& FTD, const MachineBase& machine);
     virtual ~SimpleEncCommitFactory();
+    bool has_left() { return cnt >= 0; }
     void next(Plaintext_<FD>& mess, Ciphertext& C);
     virtual size_t report_size(ReportType type);
     void report_size(ReportType type, MemoryUsage& res);
