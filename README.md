@@ -1,3 +1,7 @@
+**Notice:** This software is not under active development any more. There are two successor projects:
+- [SCALE-MAMBA](https://github.com/KULeuven-COSIC/SCALE-MAMBA) aims to provide an integrated framework for computation in prime order fields with both dishonest and honest majority.
+- [MP-SPDZ](https://github.com/n1analytics/MP-SPDZ) aims to provide benchmarking of various protocols while preserving all the functionality of SPDZ-2.
+
 (C) 2018 University of Bristol. See License.txt
 
 Software for the SPDZ, MASCOT, and Overdrive secure multi-party computation protocols.
