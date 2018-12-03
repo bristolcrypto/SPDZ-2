@@ -22,9 +22,9 @@
  *   ./compile.py sum-array
  *   ./Scripts/run-online.sh sum-array to run the engines.
  *
- *   ./sum-client-array.x 123 2 100 0
- *   ./sum-client-array.x 456 2 200 0
- *   ./sum-client-array.x 789 2 500 1
+ *   ./sum-client-array.x 123 2 ./ExternalIO/data1.txt 0
+ *   ./sum-client-array.x 456 2 ./ExternalIO/data2.txt 0
+ *   ./sum-client-array.x 789 2 ./ExternalIO/data1.txt 1
  *
  *   Expect the sum to be 800.
  */
@@ -41,6 +41,8 @@
 #include <iterator>
 #include <sstream>
 #include <fstream>
+
+#define ARRAY_UPPER_BOUND 100
 
 // Send the private inputs masked with a random value.
 // Receive shares of a preprocessed triple from each SPDZ engine, combine and check the triples are valid.
@@ -71,8 +73,6 @@ void send_private_inputs(vector<gfp>& values, vector<int>& sockets, int nparties
     // Check triple relations (is a party cheating?)
     for (int i = 0; i < num_inputs; i++)
     {
-        cerr << triples[i][0] << " * " << triples[i][1] << " != " << triples[i][2] << " " << "\n";
-        
         if (triples[i][0] * triples[i][1] != triples[i][2])
         {
             cerr << "Incorrect triple at " << i << ", aborting\n";
@@ -194,29 +194,33 @@ int main(int argc, char** argv)
     vector_size_gfp[1].assign(vec_size);
     send_private_inputs(vector_size_gfp, sockets, nparties); // first send the client_id and the array-size
         
-    // Create gfp vector for the array
-    vector<gfp> input_values_gfp(vec_size + 2);
+    // Create gfp vector for the array and send one int at a time
+    vector<gfp> input_values_gfp(1);
     input_values_gfp[0].assign(my_client_id); // send client_id one more time
-    cout << "\tinput_values_gfp[" << 0 << "] : " << my_client_id << endl;
-    for (int i = 0 ; i < vec_size ; ++i) {
-        input_values_gfp[i + 1].assign(array_to_add[i]);
-        cout << "\tinput_values_gfp[" << i+1 << "] : " << array_to_add[i] << endl;
-    }
-    input_values_gfp[vec_size + 1].assign(finish);
-    cout << "\tinput_values_gfp[" << vec_size + 1 << "] : " << finish << endl;
-
-    // Run the commputation
     send_private_inputs(input_values_gfp, sockets, nparties);
-    
+    for (int i = 0 ; i < vec_size ; ++i) {
+        input_values_gfp[0].assign(array_to_add[i]);
+        send_private_inputs(input_values_gfp, sockets, nparties);
+    }
+    input_values_gfp[0].assign(finish);
+    send_private_inputs(input_values_gfp, sockets, nparties);
     cout << "Sent private inputs to each SPDZ engine, waiting for result..." << endl;
-
-    // Get the result back (client_id of winning client)
-    gfp result = receive_result(sockets, nparties);
-
-    cout << "Sum of clients inputs is : " << result << endl;
     
-    for (unsigned int i = 0; i < sockets.size(); i++)
+    // Run the commputation & get the result back
+    vector<gfp> results(ARRAY_UPPER_BOUND);
+    for (int i = 0 ; i < ARRAY_UPPER_BOUND ; ++i) {
+        results[i] = receive_result(sockets, nparties);
+    }
+    
+    cout << "\nArray with sum of clients arrays is :\n";
+    for (int i = 1 ; i <= vec_size ; ++i) { // starting from 1 because the first is the client_id
+        cout << results[i]  << " ";
+    }
+    cout << endl;
+    
+    for (unsigned int i = 0; i < sockets.size(); i++) {
         close_client_socket(sockets[i]);
+    }
 
     return 0;
 }

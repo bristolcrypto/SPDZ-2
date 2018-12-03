@@ -21,6 +21,7 @@ from Compiler.util import if_else
 
 PORTNUM = 14000
 MAX_NUM_CLIENTS = 8
+ARRAY_UPPER_BOUND = 100
 
 def accept_client_input():
     """
@@ -30,51 +31,41 @@ def accept_client_input():
     client_socket_id = regint()
     acceptclientconnection(client_socket_id, PORTNUM)
     
+    # Receive array length
     first_packet = sint.receive_from_client(2, client_socket_id)
     array_size = first_packet[1].reveal()
-    new_size = array_size + 2
+    total_size = array_size + 2
     
-    print_ln('\nsize of array to expect %s \n', array_size)
-    print_ln('\nsNew size %s \n', new_size)
-    
-    # client_inputs = sint.receive_from_client(new_size, client_socket_id)
-    
-    # upper_bound = 10
-    # client_inputs = Array(upper_bound, sint)
-    # @for_range(new_size)
-    # def _(i):
-    for i in range(5):
-        print_ln('\nBefore \n')
-        
-        client_inputs = sint.receive_from_client(1, client_socket_id)
-        
-        print_ln('\nAfter %s \n', client_inputs[0].reveal())
-        
-        # print_ln('\n\nfooooo %s \n', client_inputs[0].reveal())
-    
-    
-    # @for_range(20)
-    # def loop_body(i):
-    #     print_ln('\n i %s \n', i)
-        
-    print_ln('\nDone %s \n', new_size)
+    # Receive array
+    receive_client_array = Array(ARRAY_UPPER_BOUND, sint)
+    client_inputs = Array(ARRAY_UPPER_BOUND, sint)
+    @for_range(total_size)
+    def _(i):
+        receive_client_array = sint.receive_from_client(1, client_socket_id)    # Read 1 secure-int at a time
+        client_inputs[i] = receive_client_array[0]                              # Recreate the array
+        # print_ln('Just received %s', client_inputs[i].reveal())                 # Print received sints
 
+    # store client_id and finish bit
+    client_id = client_inputs[0]
+    finish = client_inputs[total_size-1]
+    # clear client_id and finish bit in order to be neutral to the sum
+    client_inputs[0] = sint(0)
+    client_inputs[total_size-1] = sint(0)
+    return client_socket_id, client_id, client_inputs, finish
+
+# Add the arrays
+def compute_sum_of_clients_arrays(number_clients, client_values_matrix):
+    """Compute sum of client_values_matrix"""
+    sum_result = Array(ARRAY_UPPER_BOUND, sint)
+    sum_result.assign_all(0)
     
-    return client_socket_id, client_inputs[0], client_inputs[0], client_inputs[0]
-    # return client_socket_id, client_inputs[0], client_inputs[1], client_inputs[2]
-
-
-def compute_sum_of_clients(number_clients, client_values):
-    """Compute sum of client_values"""
-    sum_result = Array(1, sint)
-    sum_result[0] = sint(0)
-
     @for_range(number_clients)
-    def loop_body(i):
-        
-        sum_result[0] += client_values[i]
+    def for_each_client(i):
+        @for_range(ARRAY_UPPER_BOUND)
+        def for_each_value(j):
+            sum_result[j] += client_values_matrix[i][j]
 
-    return sum_result[0]
+    return sum_result
 
 
 def share_sum_to_clients(sockets, number_clients, clients_sum):
@@ -106,7 +97,9 @@ def main():
         # Number of clients
         number_clients = MemValue(regint(0))
         # Clients secret input.
-        client_values = Array(MAX_NUM_CLIENTS, sint)
+        client_values = Array(ARRAY_UPPER_BOUND, sint)
+        client_values_matrix = Matrix(MAX_NUM_CLIENTS, ARRAY_UPPER_BOUND, sint)
+        
         # Client ids to identity client
         client_ids = Array(MAX_NUM_CLIENTS, sint)
 
@@ -114,18 +107,22 @@ def main():
         @do_while
         def client_connections():
             
-            client_sockets[number_clients], client_ids[number_clients], client_values[number_clients], finish = accept_client_input()
+            client_sockets[number_clients], client_ids[number_clients], client_values, finish = accept_client_input()
+            
+            @for_range(ARRAY_UPPER_BOUND)
+            def fill_matrix_loop(i):
+                client_values_matrix[number_clients][i] = client_values[i]
             
             number_clients.write(number_clients+1)
 
             # continue while both expressions are false
             return (number_clients >= MAX_NUM_CLIENTS) + finish.reveal() == 0 
 
-        sum_result = compute_sum_of_clients(number_clients, client_values)
+        sum_result = compute_sum_of_clients_arrays(number_clients, client_values_matrix)
 
-        # print_ln('Computed sum %s.', sum_result.reveal())
-
-        share_sum_to_clients(client_sockets, number_clients, sum_result)
+        @for_range(ARRAY_UPPER_BOUND)
+        def for_each_value(i):
+            share_sum_to_clients(client_sockets, number_clients, sum_result[i])
 
         return True
 
