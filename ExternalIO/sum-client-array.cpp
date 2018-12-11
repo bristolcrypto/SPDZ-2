@@ -147,8 +147,8 @@ int main(int argc, char** argv)
     string host_name = "localhost";
 
     if (argc < 5) {
-        cout << "Usage is sum-client <client identifier> <number of spdz parties> "
-           << "<number to add> <finish (0 false, 1 true)> <optional host name, default localhost> "
+        cout << "Usage is sum-client.array.x <client identifier> <number of spdz parties> "
+           << "<filename with array to add> <finish (0 false, 1 true)> <optional host name, default localhost> "
            << "<optional spdz party port base number, default 14000>" << endl;
         exit(0);
     }
