@@ -2442,7 +2442,7 @@ class sfloatMatrix(Matrix):
 
 class sfixArray(Array):
     def __init__(self, length, address=None):
-        self.array = Array(length, sint, address)
+        self.array = Array(length, sfix, address)
         self.length = length
         self.value_type = sfix
 
@@ -2463,10 +2463,13 @@ class sfixMatrix(Matrix):
     def __init__(self, rows, columns, address=None):
         self.rows = rows
         self.columns = columns
-        self.multi_array = Matrix(rows, columns, sint, address)
+        self.multi_array = Matrix(rows, columns, sfix, address)
 
     def __getitem__(self, index):
         return sfixArray(self.columns, self.multi_array[index].address)
+    
+    def __mul__(self, other):
+        return self.multi_array * other
 
     def get_address(self):
         return self.multi_array.get_address()
